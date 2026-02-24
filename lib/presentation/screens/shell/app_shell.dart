@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'package:ai_client_service/presentation/providers/chat_provider.dart';
 
 /// Responsive shell with a collapsible sidebar on wide screens
 /// and bottom navigation on narrow screens.
-///
-/// The sidebar layout mimics the ChatGPT desktop application:
-///   - top logo/title + collapse toggle
-///   - New Chat button
-///   - chat history list (scrollable)
-///   - Settings link at the bottom
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.child});
 
@@ -59,8 +56,6 @@ class _AppShellState extends State<AppShell> {
 
   Widget _buildDesktopLayout(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final selectedIndex = _currentIndex();
 
     return Scaffold(
       body: Row(
@@ -73,121 +68,9 @@ class _AppShellState extends State<AppShell> {
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(color: cs.surface),
             child: _sidebarOpen
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header row: logo + title + collapse toggle
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 8, 4),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [cs.primary, cs.tertiary],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.auto_awesome,
-                                color: cs.onPrimary,
-                                size: 16,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'AI Client',
-                                style: tt.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () =>
-                                  setState(() => _sidebarOpen = false),
-                              icon: const Icon(Icons.menu_open, size: 20),
-                              tooltip: 'Collapse sidebar',
-                              splashRadius: 18,
-                              style: IconButton.styleFrom(
-                                foregroundColor: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // New Chat button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () => context.go('/chat/new'),
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('New chat'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              side: BorderSide(
-                                color: cs.outlineVariant.withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 4),
-
-                      // Section label
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                        child: Text(
-                          'Your chats',
-                          style: tt.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-
-                      // Chat history list
-                      Expanded(child: _ChatHistoryList()),
-
-                      const Divider(indent: 12, endIndent: 12),
-
-                      // Settings link
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.settings_outlined,
-                            size: 20,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          title: Text('Settings', style: tt.bodyMedium),
-                          dense: true,
-                          visualDensity: VisualDensity.compact,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          selected: selectedIndex == 2,
-                          selectedTileColor: cs.primaryContainer.withValues(
-                            alpha: 0.3,
-                          ),
-                          onTap: () => context.go('/settings'),
-                        ),
-                      ),
-                    ],
+                ? _Sidebar(
+                    onCollapse: () => setState(() => _sidebarOpen = false),
+                    onNewChat: _startNewChat,
                   )
                 : const SizedBox.shrink(),
           ),
@@ -205,8 +88,16 @@ class _AppShellState extends State<AppShell> {
               children: [
                 // Show expand button when sidebar is collapsed
                 if (!_sidebarOpen)
-                  _CollapsedSidebarStrip(
-                    onExpand: () => setState(() => _sidebarOpen = true),
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8, top: 8),
+                      child: IconButton(
+                        onPressed: () => setState(() => _sidebarOpen = true),
+                        icon: const Icon(Icons.menu, size: 22),
+                        tooltip: 'Expand sidebar',
+                      ),
+                    ),
                   ),
                 Expanded(child: widget.child),
               ],
@@ -248,31 +139,132 @@ class _AppShellState extends State<AppShell> {
       ),
     );
   }
+
+  void _startNewChat() {
+    // Clear chat state and navigate
+    context.go('/chat/new');
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Collapsed sidebar strip -- just a small icon button to re-expand
+// Sidebar widget
 // ---------------------------------------------------------------------------
 
-class _CollapsedSidebarStrip extends StatelessWidget {
-  const _CollapsedSidebarStrip({required this.onExpand});
-  final VoidCallback onExpand;
+class _Sidebar extends ConsumerWidget {
+  const _Sidebar({required this.onCollapse, required this.onNewChat});
+
+  final VoidCallback onCollapse;
+  final VoidCallback onNewChat;
 
   @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.topLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 8, top: 8),
-        child: IconButton(
-          onPressed: onExpand,
-          icon: const Icon(Icons.menu, size: 22),
-          tooltip: 'Expand sidebar',
-          style: IconButton.styleFrom(
-            foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final location = GoRouterState.of(context).uri.toString();
+    final isSettingsSelected = location.startsWith('/settings');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header row: logo + title + collapse toggle
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 4),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [cs.primary, cs.tertiary],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.auto_awesome, color: cs.onPrimary, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'AI Client',
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              IconButton(
+                onPressed: onCollapse,
+                icon: const Icon(Icons.menu_open, size: 20),
+                tooltip: 'Collapse sidebar',
+              ),
+            ],
           ),
         ),
-      ),
+
+        // New Chat button
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                ref.read(chatNotifierProvider.notifier).loadHistory();
+                onNewChat();
+              },
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('New chat'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                side: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        // Section label
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Text(
+            'Your chats',
+            style: tt.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+
+        // Chat history list
+        const Expanded(child: _ChatHistoryList()),
+
+        const Divider(indent: 12, endIndent: 12),
+
+        // Settings link
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+          child: ListTile(
+            leading: Icon(
+              Icons.settings_outlined,
+              size: 20,
+              color: cs.onSurfaceVariant,
+            ),
+            title: Text('Settings', style: tt.bodyMedium),
+            dense: true,
+            visualDensity: VisualDensity.compact,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            selected: isSettingsSelected,
+            selectedTileColor: cs.primaryContainer.withValues(alpha: 0.3),
+            onTap: () => context.go('/settings'),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -282,6 +274,8 @@ class _CollapsedSidebarStrip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ChatHistoryList extends StatelessWidget {
+  const _ChatHistoryList();
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;

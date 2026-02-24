@@ -7,22 +7,16 @@ class AppTheme {
   // -- Palette --
   static const _seedColor = Color(0xFF00BFA5); // teal accent
 
-  // -- Font resolver --
-  static TextTheme _textThemeFor(String fontFamily, TextTheme base) {
-    switch (fontFamily) {
-      case 'Roboto':
-        return GoogleFonts.robotoTextTheme(base);
-      case 'Roboto Mono':
-        return GoogleFonts.robotoMonoTextTheme(base);
-      case 'JetBrains Mono':
-        return GoogleFonts.jetBrainsMonoTextTheme(base);
-      case 'Fira Code':
-        return GoogleFonts.firaCodeTextTheme(base);
-      case 'Source Sans 3':
-        return GoogleFonts.sourceSans3TextTheme(base);
-      case 'Inter':
-      default:
-        return GoogleFonts.interTextTheme(base);
+  /// Resolves a font family name (e.g. 'Inter') to the real
+  /// platform font family string registered by GoogleFonts.
+  /// We only extract the fontFamily -- we never replace entire TextStyle
+  /// objects, which avoids null-fontSize assertion errors.
+  static String _resolveFontFamily(String name) {
+    try {
+      return GoogleFonts.getFont(name).fontFamily ?? name;
+    } catch (_) {
+      // Fall back to the raw name if GoogleFonts doesn't recognise it.
+      return name;
     }
   }
 
@@ -67,8 +61,15 @@ class AppTheme {
     String fontFamily, {
     Color? surfaceContainerOverride,
   }) {
-    final baseTextTheme = ThemeData(colorScheme: cs).textTheme;
-    final textTheme = _textThemeFor(fontFamily, baseTextTheme);
+    // Get the resolved platform font family name.
+    final resolvedFamily = _resolveFontFamily(fontFamily);
+
+    // Start from a default Material 3 theme so every TextStyle in the
+    // textTheme has a valid fontSize.  Then apply only the fontFamily,
+    // which never touches fontSize and therefore never triggers the
+    // "fontSizeFactor == fontSizeFactor" assertion.
+    final baseTheme = ThemeData(useMaterial3: true, colorScheme: cs);
+    final textTheme = baseTheme.textTheme.apply(fontFamily: resolvedFamily);
 
     return ThemeData(
       useMaterial3: true,

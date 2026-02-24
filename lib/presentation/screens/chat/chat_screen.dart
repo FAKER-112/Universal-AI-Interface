@@ -5,74 +5,74 @@ import 'package:ai_client_service/presentation/providers/chat_provider.dart';
 import 'package:ai_client_service/presentation/widgets/message_list.dart';
 import 'package:ai_client_service/presentation/widgets/input_area.dart';
 
-class ChatScreen extends ConsumerStatefulWidget {
+class ChatScreen extends ConsumerWidget {
   const ChatScreen({super.key, required this.chatId});
 
   final String chatId;
 
   @override
-  ConsumerState<ChatScreen> createState() => _ChatScreenState();
-}
-
-class _ChatScreenState extends ConsumerState<ChatScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // Load history for this chat session (currently resets to empty).
-    ref.read(chatNotifierProvider.notifier).loadHistory();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final chatState = ref.watch(chatNotifierProvider);
     final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Icon(Icons.auto_awesome, size: 20, color: cs.primary),
-            const SizedBox(width: 8),
-            const Text('Chat'),
-          ],
-        ),
-        actions: [
-          if (chatState.isStreaming)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: TextButton.icon(
-                onPressed: () =>
-                    ref.read(chatNotifierProvider.notifier).cancelStream(),
-                icon: const Icon(Icons.stop_circle_outlined, size: 18),
-                label: const Text('Stop'),
-                style: TextButton.styleFrom(foregroundColor: cs.error),
+    return Column(
+      children: [
+        // -- App bar area --
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            border: Border(
+              bottom: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: 0.15),
               ),
             ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // -- Messages --
-          Expanded(
-            child: chatState.messages.isEmpty
-                ? _EmptyState(colorScheme: cs)
-                : MessageListWidget(
-                    messages: chatState.messages,
-                    isStreaming: chatState.isStreaming,
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Row(
+              children: [
+                Icon(Icons.auto_awesome, size: 20, color: cs.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Chat',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
+                const Spacer(),
+                if (chatState.isStreaming)
+                  TextButton.icon(
+                    onPressed: () =>
+                        ref.read(chatNotifierProvider.notifier).cancelStream(),
+                    icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                    label: const Text('Stop'),
+                    style: TextButton.styleFrom(foregroundColor: cs.error),
+                  ),
+              ],
+            ),
           ),
-          // -- Input --
-          InputAreaWidget(
-            isStreaming: chatState.isStreaming,
-            onSend: (text) {
-              ref.read(chatNotifierProvider.notifier).sendMessage(text);
-            },
-            onStop: () {
-              ref.read(chatNotifierProvider.notifier).cancelStream();
-            },
-          ),
-        ],
-      ),
+        ),
+        // -- Messages --
+        Expanded(
+          child: chatState.messages.isEmpty
+              ? _EmptyState(colorScheme: cs)
+              : MessageListWidget(
+                  messages: chatState.messages,
+                  isStreaming: chatState.isStreaming,
+                ),
+        ),
+        // -- Input --
+        InputAreaWidget(
+          isStreaming: chatState.isStreaming,
+          onSend: (text) {
+            ref.read(chatNotifierProvider.notifier).sendMessage(text);
+          },
+          onStop: () {
+            ref.read(chatNotifierProvider.notifier).cancelStream();
+          },
+        ),
+      ],
     );
   }
 }
@@ -110,9 +110,10 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Start a conversation',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            'What can I help you with?',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 6),

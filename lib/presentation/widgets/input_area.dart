@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Text input area with Send / Stop Generating actions.
+/// ChatGPT-style input area: rounded pill field with a "+" on the left,
+/// placeholder text, and a circular send button on the right.
 class InputAreaWidget extends StatefulWidget {
   const InputAreaWidget({
     super.key,
@@ -40,89 +41,185 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        border: Border(
-          top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.2)),
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+    final fieldBg = isDark
+        ? cs.onSurface.withValues(alpha: 0.08)
+        : cs.onSurface.withValues(alpha: 0.05);
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Text field
-            Expanded(
-              child: KeyboardListener(
-                focusNode: FocusNode(),
-                onKeyEvent: (event) {
-                  // Enter sends, Shift+Enter inserts newline.
-                  if (event is KeyDownEvent &&
-                      event.logicalKey == LogicalKeyboardKey.enter &&
-                      !HardwareKeyboard.instance.isShiftPressed) {
-                    _submit();
-                  }
-                },
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  maxLines: 5,
-                  minLines: 1,
-                  textInputAction: TextInputAction.newline,
-                  decoration: InputDecoration(
-                    hintText: widget.isStreaming
-                        ? 'Waiting for response...'
-                        : 'Type a message...',
-                    suffixIcon: widget.isStreaming
-                        ? IconButton(
+            // -- Input pill --
+            Container(
+              decoration: BoxDecoration(
+                color: fieldBg,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // "+" button on the left
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6, bottom: 6),
+                    child: IconButton(
+                      onPressed: () {
+                        // Attachment action placeholder
+                      },
+                      icon: Icon(
+                        Icons.add_circle_outline,
+                        size: 22,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                      tooltip: 'Attach',
+                      splashRadius: 18,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+
+                  // Text field
+                  Expanded(
+                    child: KeyboardListener(
+                      focusNode: FocusNode(),
+                      onKeyEvent: (event) {
+                        if (event is KeyDownEvent &&
+                            event.logicalKey == LogicalKeyboardKey.enter &&
+                            !HardwareKeyboard.instance.isShiftPressed) {
+                          _submit();
+                        }
+                      },
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        maxLines: 6,
+                        minLines: 1,
+                        textInputAction: TextInputAction.newline,
+                        style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                        decoration: InputDecoration(
+                          hintText: widget.isStreaming
+                              ? 'Waiting for response...'
+                              : 'Ask anything',
+                          hintStyle: tt.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                          border: InputBorder.none,
+                          filled: false,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                          ),
+                          isDense: true,
+                        ),
+                        enabled: !widget.isStreaming,
+                        onSubmitted: (_) => _submit(),
+                      ),
+                    ),
+                  ),
+
+                  // Right-side action buttons
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6, bottom: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.isStreaming)
+                          // Stop button
+                          _CircleActionButton(
                             onPressed: widget.onStop,
-                            icon: Icon(
-                              Icons.stop_circle_rounded,
-                              color: cs.error,
-                            ),
-                            tooltip: 'Stop generating',
+                            icon: Icons.stop_rounded,
+                            filled: true,
+                            colorScheme: cs,
                           )
-                        : ValueListenableBuilder<TextEditingValue>(
+                        else
+                          // Send button
+                          ValueListenableBuilder<TextEditingValue>(
                             valueListenable: _controller,
                             builder: (context, value, _) {
                               final active = value.text.trim().isNotEmpty;
-                              return IconButton(
+                              return _CircleActionButton(
                                 onPressed: active ? _submit : null,
-                                icon: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  width: 34,
-                                  height: 34,
-                                  decoration: BoxDecoration(
-                                    color: active
-                                        ? cs.primary
-                                        : cs.onSurface.withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    Icons.arrow_upward_rounded,
-                                    color: active
-                                        ? cs.onPrimary
-                                        : cs.onSurfaceVariant.withValues(
-                                            alpha: 0.4,
-                                          ),
-                                    size: 20,
-                                  ),
-                                ),
-                                tooltip: 'Send message',
+                                icon: Icons.arrow_upward_rounded,
+                                filled: active,
+                                colorScheme: cs,
                               );
                             },
                           ),
+                      ],
+                    ),
                   ),
-                  enabled: !widget.isStreaming,
-                  onSubmitted: (_) => _submit(),
+                ],
+              ),
+            ),
+
+            // -- Disclaimer text --
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 2),
+              child: Text(
+                'AI can make mistakes. Verify important information.',
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  fontSize: 11,
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Circular action button (send / stop)
+// ---------------------------------------------------------------------------
+
+class _CircleActionButton extends StatelessWidget {
+  const _CircleActionButton({
+    required this.onPressed,
+    required this.icon,
+    required this.filled,
+    required this.colorScheme,
+  });
+
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final bool filled;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: filled
+                ? colorScheme.onSurface
+                : colorScheme.onSurface.withValues(alpha: 0.08),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: filled
+                ? colorScheme.surface
+                : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        padding: EdgeInsets.zero,
+        tooltip: filled ? 'Send message' : null,
       ),
     );
   }
