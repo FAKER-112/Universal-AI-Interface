@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ai_client_service/presentation/screens/shell/app_shell.dart';
 import 'package:ai_client_service/presentation/screens/chat/chat_screen.dart';
 import 'package:ai_client_service/presentation/screens/settings/settings_screen.dart';
+import 'package:ai_client_service/presentation/screens/history/history_screen.dart';
 
 final goRouter = GoRouter(
   initialLocation: '/chat/new',
@@ -16,6 +17,10 @@ final goRouter = GoRouter(
             final chatId = state.pathParameters['id'] ?? 'new';
             return ChatScreen(chatId: chatId);
           },
+        ),
+        GoRoute(
+          path: '/history',
+          builder: (context, state) => const HistoryScreen(),
         ),
         GoRoute(
           path: '/settings',

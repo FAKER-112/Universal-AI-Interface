@@ -39,7 +39,6 @@ class _MessageListWidgetState extends State<MessageListWidget> {
     if (!_controller.hasClients) return;
     final maxScroll = _controller.position.maxScrollExtent;
     final currentScroll = _controller.position.pixels;
-    // Re-enable auto-scroll when user scrolls back to bottom.
     _autoScroll = (maxScroll - currentScroll) < 60;
   }
 
@@ -64,16 +63,30 @@ class _MessageListWidgetState extends State<MessageListWidget> {
   Widget build(BuildContext context) {
     return ListView.builder(
       controller: _controller,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       itemCount: widget.messages.length,
       itemBuilder: (context, index) {
         final msg = widget.messages[index];
         final isLast = index == widget.messages.length - 1;
+        final isUser = msg.role is MessageRoleUser;
+
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: MessageBubbleWidget(
-            message: msg,
-            isStreaming: isLast && widget.isStreaming,
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Align(
+            alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+            child: ConstrainedBox(
+              // User messages get a max-width; assistant messages fill the
+              // available space for a ChatGPT/Claude-style layout.
+              constraints: BoxConstraints(
+                maxWidth: isUser
+                    ? MediaQuery.sizeOf(context).width * 0.78
+                    : double.infinity,
+              ),
+              child: MessageBubbleWidget(
+                message: msg,
+                isStreaming: isLast && widget.isStreaming,
+              ),
+            ),
           ),
         );
       },

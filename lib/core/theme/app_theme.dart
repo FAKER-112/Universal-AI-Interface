@@ -7,30 +7,68 @@ class AppTheme {
   // -- Palette --
   static const _seedColor = Color(0xFF00BFA5); // teal accent
 
+  // -- Font resolver --
+  static TextTheme _textThemeFor(String fontFamily, TextTheme base) {
+    switch (fontFamily) {
+      case 'Roboto':
+        return GoogleFonts.robotoTextTheme(base);
+      case 'Roboto Mono':
+        return GoogleFonts.robotoMonoTextTheme(base);
+      case 'JetBrains Mono':
+        return GoogleFonts.jetBrainsMonoTextTheme(base);
+      case 'Fira Code':
+        return GoogleFonts.firaCodeTextTheme(base);
+      case 'Source Sans 3':
+        return GoogleFonts.sourceSans3TextTheme(base);
+      case 'Inter':
+      default:
+        return GoogleFonts.interTextTheme(base);
+    }
+  }
+
   // -- Light --
-  static ThemeData get lightTheme {
+  static ThemeData lightTheme({String fontFamily = 'Inter'}) {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: _seedColor,
       brightness: Brightness.light,
     );
-    return _build(colorScheme);
+    return _build(colorScheme, fontFamily);
   }
 
-  // -- Dark --
-  static ThemeData get darkTheme {
+  // -- Dark Dim (dark gray surfaces) --
+  static ThemeData darkDimTheme({String fontFamily = 'Inter'}) {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: _seedColor,
       brightness: Brightness.dark,
       surface: const Color(0xFF1A1A2E),
       onSurface: const Color(0xFFE0E0E0),
     );
-    return _build(colorScheme);
+    return _build(colorScheme, fontFamily);
   }
 
-  static ThemeData _build(ColorScheme cs) {
-    final textTheme = GoogleFonts.interTextTheme(
-      ThemeData(colorScheme: cs).textTheme,
+  // -- Dark Lights-Out (AMOLED black) --
+  static ThemeData darkLightsOutTheme({String fontFamily = 'Inter'}) {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: _seedColor,
+      brightness: Brightness.dark,
+      surface: Colors.black,
+      onSurface: const Color(0xFFE8E8E8),
     );
+    return _build(
+      colorScheme,
+      fontFamily,
+      surfaceContainerOverride: const Color(0xFF0D0D0D),
+    );
+  }
+
+  // -- Builder --
+  static ThemeData _build(
+    ColorScheme cs,
+    String fontFamily, {
+    Color? surfaceContainerOverride,
+  }) {
+    final baseTextTheme = ThemeData(colorScheme: cs).textTheme;
+    final textTheme = _textThemeFor(fontFamily, baseTextTheme);
 
     return ThemeData(
       useMaterial3: true,
@@ -67,14 +105,14 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: cs.surfaceContainerHighest,
+        color: surfaceContainerOverride ?? cs.surfaceContainerHighest,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         margin: EdgeInsets.zero,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: cs.surfaceContainerHighest,
+        fillColor: surfaceContainerOverride ?? cs.surfaceContainerHighest,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
