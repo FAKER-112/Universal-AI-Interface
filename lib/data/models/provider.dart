@@ -21,6 +21,16 @@ abstract class ProviderConfig with _$ProviderConfig {
     required String baseUrl,
     @Default('') String apiKey,
     required String modelName,
+    @Default('') String description,
+    @Default('') String organization,
+    // Model parameters
+    @Default(0.7) double temperature,
+    @Default(4096) int maxTokens,
+    @Default(1.0) double topP,
+    @Default(0.0) double frequencyPenalty,
+    @Default(0.0) double presencePenalty,
+    @Default(30) int timeout,
+    @Default(3) int maxRetries,
   }) = _ProviderConfig;
 
   factory ProviderConfig.fromJson(Map<String, dynamic> json) =>

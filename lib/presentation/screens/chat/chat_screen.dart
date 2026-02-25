@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:ai_client_service/core/theme/app_theme.dart';
 import 'package:ai_client_service/presentation/providers/chat_provider.dart';
+import 'package:ai_client_service/presentation/providers/provider_config_provider.dart';
 import 'package:ai_client_service/presentation/widgets/message_list.dart';
 import 'package:ai_client_service/presentation/widgets/input_area.dart';
-import 'package:ai_client_service/presentation/widgets/model_selector.dart';
+import 'package:ai_client_service/presentation/widgets/model_config_panel.dart';
 
 class ChatScreen extends ConsumerWidget {
   const ChatScreen({super.key, required this.chatId});
@@ -15,6 +16,7 @@ class ChatScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatState = ref.watch(chatNotifierProvider);
+    final providerConfig = ref.watch(providerConfigProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
@@ -43,18 +45,69 @@ class ChatScreen extends ConsumerWidget {
                     ),
                   ),
 
-                // Model selector
-                ModelSelector(
-                  currentModel: 'mock-model-v1',
-                  availableModels: const [
-                    'mock-model-v1',
-                    'mock-model-v2',
-                    'gpt-4o',
-                    'claude-3.5-sonnet',
-                  ],
-                  onModelChanged: (model) {
-                    // Will hook into provider configuration later
-                  },
+                // Model selector chip -- tapping opens the config panel
+                GestureDetector(
+                  onTap: () => showModelConfigPanel(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: cs.outlineVariant.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.memory, size: 16, color: cs.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          providerConfig.modelName,
+                          style: tt.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.tune,
+                          size: 14,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                // Provider badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: providerConfig.apiKey.isEmpty
+                        ? cs.tertiaryContainer.withValues(alpha: 0.4)
+                        : cs.primaryContainer.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    providerConfig.apiKey.isEmpty
+                        ? 'Mock'
+                        : providerConfig.name,
+                    style: tt.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: providerConfig.apiKey.isEmpty
+                          ? cs.onTertiaryContainer
+                          : cs.onPrimaryContainer,
+                      fontSize: 10,
+                    ),
+                  ),
                 ),
 
                 const SizedBox(width: 12),

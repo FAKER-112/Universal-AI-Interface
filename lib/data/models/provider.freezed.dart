@@ -26,6 +26,16 @@ mixin _$ProviderConfig {
   String get baseUrl => throw _privateConstructorUsedError;
   String get apiKey => throw _privateConstructorUsedError;
   String get modelName => throw _privateConstructorUsedError;
+  String get description => throw _privateConstructorUsedError;
+  String get organization =>
+      throw _privateConstructorUsedError; // Model parameters
+  double get temperature => throw _privateConstructorUsedError;
+  int get maxTokens => throw _privateConstructorUsedError;
+  double get topP => throw _privateConstructorUsedError;
+  double get frequencyPenalty => throw _privateConstructorUsedError;
+  double get presencePenalty => throw _privateConstructorUsedError;
+  int get timeout => throw _privateConstructorUsedError;
+  int get maxRetries => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -45,7 +55,16 @@ abstract class $ProviderConfigCopyWith<$Res> {
       ProviderType type,
       String baseUrl,
       String apiKey,
-      String modelName});
+      String modelName,
+      String description,
+      String organization,
+      double temperature,
+      int maxTokens,
+      double topP,
+      double frequencyPenalty,
+      double presencePenalty,
+      int timeout,
+      int maxRetries});
 }
 
 /// @nodoc
@@ -67,6 +86,15 @@ class _$ProviderConfigCopyWithImpl<$Res, $Val extends ProviderConfig>
     Object? baseUrl = null,
     Object? apiKey = null,
     Object? modelName = null,
+    Object? description = null,
+    Object? organization = null,
+    Object? temperature = null,
+    Object? maxTokens = null,
+    Object? topP = null,
+    Object? frequencyPenalty = null,
+    Object? presencePenalty = null,
+    Object? timeout = null,
+    Object? maxRetries = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -93,6 +121,42 @@ class _$ProviderConfigCopyWithImpl<$Res, $Val extends ProviderConfig>
           ? _value.modelName
           : modelName // ignore: cast_nullable_to_non_nullable
               as String,
+      description: null == description
+          ? _value.description
+          : description // ignore: cast_nullable_to_non_nullable
+              as String,
+      organization: null == organization
+          ? _value.organization
+          : organization // ignore: cast_nullable_to_non_nullable
+              as String,
+      temperature: null == temperature
+          ? _value.temperature
+          : temperature // ignore: cast_nullable_to_non_nullable
+              as double,
+      maxTokens: null == maxTokens
+          ? _value.maxTokens
+          : maxTokens // ignore: cast_nullable_to_non_nullable
+              as int,
+      topP: null == topP
+          ? _value.topP
+          : topP // ignore: cast_nullable_to_non_nullable
+              as double,
+      frequencyPenalty: null == frequencyPenalty
+          ? _value.frequencyPenalty
+          : frequencyPenalty // ignore: cast_nullable_to_non_nullable
+              as double,
+      presencePenalty: null == presencePenalty
+          ? _value.presencePenalty
+          : presencePenalty // ignore: cast_nullable_to_non_nullable
+              as double,
+      timeout: null == timeout
+          ? _value.timeout
+          : timeout // ignore: cast_nullable_to_non_nullable
+              as int,
+      maxRetries: null == maxRetries
+          ? _value.maxRetries
+          : maxRetries // ignore: cast_nullable_to_non_nullable
+              as int,
     ) as $Val);
   }
 }
@@ -111,7 +175,16 @@ abstract class _$$ProviderConfigImplCopyWith<$Res>
       ProviderType type,
       String baseUrl,
       String apiKey,
-      String modelName});
+      String modelName,
+      String description,
+      String organization,
+      double temperature,
+      int maxTokens,
+      double topP,
+      double frequencyPenalty,
+      double presencePenalty,
+      int timeout,
+      int maxRetries});
 }
 
 /// @nodoc
@@ -131,6 +204,15 @@ class __$$ProviderConfigImplCopyWithImpl<$Res>
     Object? baseUrl = null,
     Object? apiKey = null,
     Object? modelName = null,
+    Object? description = null,
+    Object? organization = null,
+    Object? temperature = null,
+    Object? maxTokens = null,
+    Object? topP = null,
+    Object? frequencyPenalty = null,
+    Object? presencePenalty = null,
+    Object? timeout = null,
+    Object? maxRetries = null,
   }) {
     return _then(_$ProviderConfigImpl(
       id: null == id
@@ -157,6 +239,42 @@ class __$$ProviderConfigImplCopyWithImpl<$Res>
           ? _value.modelName
           : modelName // ignore: cast_nullable_to_non_nullable
               as String,
+      description: null == description
+          ? _value.description
+          : description // ignore: cast_nullable_to_non_nullable
+              as String,
+      organization: null == organization
+          ? _value.organization
+          : organization // ignore: cast_nullable_to_non_nullable
+              as String,
+      temperature: null == temperature
+          ? _value.temperature
+          : temperature // ignore: cast_nullable_to_non_nullable
+              as double,
+      maxTokens: null == maxTokens
+          ? _value.maxTokens
+          : maxTokens // ignore: cast_nullable_to_non_nullable
+              as int,
+      topP: null == topP
+          ? _value.topP
+          : topP // ignore: cast_nullable_to_non_nullable
+              as double,
+      frequencyPenalty: null == frequencyPenalty
+          ? _value.frequencyPenalty
+          : frequencyPenalty // ignore: cast_nullable_to_non_nullable
+              as double,
+      presencePenalty: null == presencePenalty
+          ? _value.presencePenalty
+          : presencePenalty // ignore: cast_nullable_to_non_nullable
+              as double,
+      timeout: null == timeout
+          ? _value.timeout
+          : timeout // ignore: cast_nullable_to_non_nullable
+              as int,
+      maxRetries: null == maxRetries
+          ? _value.maxRetries
+          : maxRetries // ignore: cast_nullable_to_non_nullable
+              as int,
     ));
   }
 }
@@ -170,7 +288,16 @@ class _$ProviderConfigImpl implements _ProviderConfig {
       required this.type,
       required this.baseUrl,
       this.apiKey = '',
-      required this.modelName});
+      required this.modelName,
+      this.description = '',
+      this.organization = '',
+      this.temperature = 0.7,
+      this.maxTokens = 4096,
+      this.topP = 1.0,
+      this.frequencyPenalty = 0.0,
+      this.presencePenalty = 0.0,
+      this.timeout = 30,
+      this.maxRetries = 3});
 
   factory _$ProviderConfigImpl.fromJson(Map<String, dynamic> json) =>
       _$$ProviderConfigImplFromJson(json);
@@ -188,10 +315,38 @@ class _$ProviderConfigImpl implements _ProviderConfig {
   final String apiKey;
   @override
   final String modelName;
+  @override
+  @JsonKey()
+  final String description;
+  @override
+  @JsonKey()
+  final String organization;
+// Model parameters
+  @override
+  @JsonKey()
+  final double temperature;
+  @override
+  @JsonKey()
+  final int maxTokens;
+  @override
+  @JsonKey()
+  final double topP;
+  @override
+  @JsonKey()
+  final double frequencyPenalty;
+  @override
+  @JsonKey()
+  final double presencePenalty;
+  @override
+  @JsonKey()
+  final int timeout;
+  @override
+  @JsonKey()
+  final int maxRetries;
 
   @override
   String toString() {
-    return 'ProviderConfig(id: $id, name: $name, type: $type, baseUrl: $baseUrl, apiKey: $apiKey, modelName: $modelName)';
+    return 'ProviderConfig(id: $id, name: $name, type: $type, baseUrl: $baseUrl, apiKey: $apiKey, modelName: $modelName, description: $description, organization: $organization, temperature: $temperature, maxTokens: $maxTokens, topP: $topP, frequencyPenalty: $frequencyPenalty, presencePenalty: $presencePenalty, timeout: $timeout, maxRetries: $maxRetries)';
   }
 
   @override
@@ -205,13 +360,44 @@ class _$ProviderConfigImpl implements _ProviderConfig {
             (identical(other.baseUrl, baseUrl) || other.baseUrl == baseUrl) &&
             (identical(other.apiKey, apiKey) || other.apiKey == apiKey) &&
             (identical(other.modelName, modelName) ||
-                other.modelName == modelName));
+                other.modelName == modelName) &&
+            (identical(other.description, description) ||
+                other.description == description) &&
+            (identical(other.organization, organization) ||
+                other.organization == organization) &&
+            (identical(other.temperature, temperature) ||
+                other.temperature == temperature) &&
+            (identical(other.maxTokens, maxTokens) ||
+                other.maxTokens == maxTokens) &&
+            (identical(other.topP, topP) || other.topP == topP) &&
+            (identical(other.frequencyPenalty, frequencyPenalty) ||
+                other.frequencyPenalty == frequencyPenalty) &&
+            (identical(other.presencePenalty, presencePenalty) ||
+                other.presencePenalty == presencePenalty) &&
+            (identical(other.timeout, timeout) || other.timeout == timeout) &&
+            (identical(other.maxRetries, maxRetries) ||
+                other.maxRetries == maxRetries));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, id, name, type, baseUrl, apiKey, modelName);
+  int get hashCode => Object.hash(
+      runtimeType,
+      id,
+      name,
+      type,
+      baseUrl,
+      apiKey,
+      modelName,
+      description,
+      organization,
+      temperature,
+      maxTokens,
+      topP,
+      frequencyPenalty,
+      presencePenalty,
+      timeout,
+      maxRetries);
 
   @JsonKey(ignore: true)
   @override
@@ -235,7 +421,16 @@ abstract class _ProviderConfig implements ProviderConfig {
       required final ProviderType type,
       required final String baseUrl,
       final String apiKey,
-      required final String modelName}) = _$ProviderConfigImpl;
+      required final String modelName,
+      final String description,
+      final String organization,
+      final double temperature,
+      final int maxTokens,
+      final double topP,
+      final double frequencyPenalty,
+      final double presencePenalty,
+      final int timeout,
+      final int maxRetries}) = _$ProviderConfigImpl;
 
   factory _ProviderConfig.fromJson(Map<String, dynamic> json) =
       _$ProviderConfigImpl.fromJson;
@@ -252,6 +447,24 @@ abstract class _ProviderConfig implements ProviderConfig {
   String get apiKey;
   @override
   String get modelName;
+  @override
+  String get description;
+  @override
+  String get organization;
+  @override // Model parameters
+  double get temperature;
+  @override
+  int get maxTokens;
+  @override
+  double get topP;
+  @override
+  double get frequencyPenalty;
+  @override
+  double get presencePenalty;
+  @override
+  int get timeout;
+  @override
+  int get maxRetries;
   @override
   @JsonKey(ignore: true)
   _$$ProviderConfigImplCopyWith<_$ProviderConfigImpl> get copyWith =>

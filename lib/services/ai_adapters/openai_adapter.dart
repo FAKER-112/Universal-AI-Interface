@@ -15,6 +15,13 @@ class OpenAIRepository implements AIRepository {
     required String baseUrl,
     required String apiKey,
     required String model,
+    this.temperature = 0.7,
+    this.maxTokens = 4096,
+    this.topP = 1.0,
+    this.frequencyPenalty = 0.0,
+    this.presencePenalty = 0.0,
+    String organization = '',
+    int timeout = 30,
   }) : _baseUrl = baseUrl.endsWith('/')
            ? baseUrl.substring(0, baseUrl.length - 1)
            : baseUrl,
@@ -24,8 +31,9 @@ class OpenAIRepository implements AIRepository {
            headers: {
              'Content-Type': 'application/json',
              'Authorization': 'Bearer $apiKey',
+             if (organization.isNotEmpty) 'OpenAI-Organization': organization,
            },
-           connectTimeout: const Duration(seconds: 15),
+           connectTimeout: Duration(seconds: timeout),
            receiveTimeout: const Duration(minutes: 5),
          ),
        );
@@ -33,6 +41,11 @@ class OpenAIRepository implements AIRepository {
   final String _baseUrl;
   final String _model;
   final Dio _dio;
+  final double temperature;
+  final int maxTokens;
+  final double topP;
+  final double frequencyPenalty;
+  final double presencePenalty;
 
   @override
   Stream<String> sendMessage(List<ChatMessage> history, String prompt) async* {
@@ -42,7 +55,16 @@ class OpenAIRepository implements AIRepository {
     try {
       response = await _dio.post<ResponseBody>(
         '$_baseUrl/chat/completions',
-        data: {'model': _model, 'messages': messages, 'stream': true},
+        data: {
+          'model': _model,
+          'messages': messages,
+          'stream': true,
+          'temperature': temperature,
+          'max_tokens': maxTokens,
+          'top_p': topP,
+          'frequency_penalty': frequencyPenalty,
+          'presence_penalty': presencePenalty,
+        },
         options: Options(responseType: ResponseType.stream),
       );
     } on DioException catch (e) {
@@ -119,7 +141,6 @@ class OpenAIRepository implements AIRepository {
         MessageRoleAssistant() => 'assistant',
         MessageRoleSystem() => 'system',
       };
-      // Skip the empty assistant placeholder at the end
       if (m.content.isEmpty && m.role is MessageRoleAssistant) continue;
       msgs.add({'role': role, 'content': m.content});
     }

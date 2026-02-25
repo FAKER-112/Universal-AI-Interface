@@ -14,6 +14,13 @@ class RepositoryFactory {
         baseUrl: config.baseUrl,
         apiKey: config.apiKey,
         model: config.modelName,
+        temperature: config.temperature,
+        maxTokens: config.maxTokens,
+        topP: config.topP,
+        frequencyPenalty: config.frequencyPenalty,
+        presencePenalty: config.presencePenalty,
+        organization: config.organization,
+        timeout: config.timeout,
       ),
       ProviderType.ollama => OllamaRepository(
         baseUrl: config.baseUrl,
