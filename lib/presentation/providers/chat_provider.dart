@@ -36,20 +36,69 @@ final chatNotifierProvider = StateNotifierProvider<ChatNotifier, ChatState>((
 });
 
 // ---------------------------------------------------------------------------
+// Session data
+// ---------------------------------------------------------------------------
+
+/// In-memory representation of a single chat session.
+class ChatSessionData {
+  ChatSessionData({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+    List<ChatMessage>? messages,
+  }) : messages = messages ?? [];
+
+  final String id;
+  String title;
+  final DateTime createdAt;
+  final List<ChatMessage> messages;
+
+  String get timeLabel {
+    final now = DateTime.now();
+    final diff = now.difference(createdAt);
+    if (diff.inDays == 0 && now.day == createdAt.day) return 'Today';
+    if (diff.inDays <= 1 && now.day - createdAt.day == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays} days ago';
+    return '${createdAt.month}/${createdAt.day}';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
 /// Immutable snapshot of the chat conversation state.
 class ChatState {
-  const ChatState({this.messages = const [], this.isStreaming = false});
+  const ChatState({
+    this.messages = const [],
+    this.isStreaming = false,
+    this.sessions = const {},
+    this.activeSessionId = 'new',
+  });
 
   final List<ChatMessage> messages;
   final bool isStreaming;
+  final Map<String, ChatSessionData> sessions;
+  final String activeSessionId;
 
-  ChatState copyWith({List<ChatMessage>? messages, bool? isStreaming}) {
+  /// Sessions sorted newest-first.
+  List<ChatSessionData> get sortedSessions {
+    final list = sessions.values.toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  ChatState copyWith({
+    List<ChatMessage>? messages,
+    bool? isStreaming,
+    Map<String, ChatSessionData>? sessions,
+    String? activeSessionId,
+  }) {
     return ChatState(
       messages: messages ?? this.messages,
       isStreaming: isStreaming ?? this.isStreaming,
+      sessions: sessions ?? this.sessions,
+      activeSessionId: activeSessionId ?? this.activeSessionId,
     );
   }
 }
@@ -65,16 +114,72 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final _uuid = const Uuid();
   StreamSubscription<String>? _activeSubscription;
 
-  /// Load prior messages. Currently a no-op placeholder for future
-  /// persistence integration.
+  /// Creates a new empty chat session.
+  void newChat() {
+    _activeSubscription?.cancel();
+    _activeSubscription = null;
+    state = state.copyWith(
+      messages: [],
+      isStreaming: false,
+      activeSessionId: 'new',
+    );
+  }
+
+  /// Switches to an existing session by [id].
+  void switchSession(String id) {
+    final session = state.sessions[id];
+    if (session == null) return;
+    _activeSubscription?.cancel();
+    _activeSubscription = null;
+    state = state.copyWith(
+      messages: List.of(session.messages),
+      isStreaming: false,
+      activeSessionId: id,
+    );
+  }
+
+  /// Deletes a session by [id].
+  void deleteSession(String id) {
+    final updated = Map<String, ChatSessionData>.from(state.sessions);
+    updated.remove(id);
+    // If deleting the active session, switch to new chat
+    if (state.activeSessionId == id) {
+      state = state.copyWith(
+        sessions: updated,
+        messages: [],
+        isStreaming: false,
+        activeSessionId: 'new',
+      );
+    } else {
+      state = state.copyWith(sessions: updated);
+    }
+  }
+
+  /// Load prior messages. Clears current messages for a fresh start.
   void loadHistory() {
-    state = const ChatState();
+    newChat();
   }
 
   /// Sends a user [prompt], appends the user message to state, then streams
   /// the assistant response token-by-token.
   Future<void> sendMessage(String prompt) async {
-    // 1. Append user message.
+    // 1. If this is a new chat, create a session first.
+    String sessionId = state.activeSessionId;
+    Map<String, ChatSessionData> sessions = Map.from(state.sessions);
+
+    if (sessionId == 'new') {
+      sessionId = _uuid.v4();
+      final title = prompt.length > 40
+          ? '${prompt.substring(0, 40)}...'
+          : prompt;
+      sessions[sessionId] = ChatSessionData(
+        id: sessionId,
+        title: title,
+        createdAt: DateTime.now(),
+      );
+    }
+
+    // 2. Append user message.
     final userMessage = ChatMessage(
       id: _uuid.v4(),
       role: const MessageRole.user(),
@@ -83,12 +188,24 @@ class ChatNotifier extends StateNotifier<ChatState> {
       status: const MessageStatus.sent(),
     );
 
+    final updatedMessages = [...state.messages, userMessage];
+
+    // Sync to session
+    final activeSession = sessions[sessionId];
+    if (activeSession != null) {
+      activeSession.messages
+        ..clear()
+        ..addAll(updatedMessages);
+    }
+
     state = state.copyWith(
-      messages: [...state.messages, userMessage],
+      messages: updatedMessages,
       isStreaming: true,
+      sessions: sessions,
+      activeSessionId: sessionId,
     );
 
-    // 2. Prepare a placeholder assistant message.
+    // 3. Prepare a placeholder assistant message.
     final assistantId = _uuid.v4();
     final assistantMessage = ChatMessage(
       id: assistantId,
@@ -100,7 +217,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
     state = state.copyWith(messages: [...state.messages, assistantMessage]);
 
-    // 3. Stream tokens from the repository.
+    // 4. Stream tokens from the repository.
     final buffer = StringBuffer();
 
     try {
@@ -121,6 +238,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
                 buffer.toString(),
                 const MessageStatus.sent(),
               );
+              _syncSessionMessages();
               state = state.copyWith(isStreaming: false);
               _activeSubscription = null;
             },
@@ -135,6 +253,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
                     : '${buffer.toString()}\n\n---\n**Error:** $errorMsg',
                 MessageStatus.error(errorMsg),
               );
+              _syncSessionMessages();
               state = state.copyWith(isStreaming: false);
               _activeSubscription = null;
             },
@@ -148,6 +267,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         'Error: $errorMsg',
         MessageStatus.error(errorMsg),
       );
+      _syncSessionMessages();
       state = state.copyWith(isStreaming: false);
     }
   }
@@ -156,6 +276,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   void cancelStream() {
     _activeSubscription?.cancel();
     _activeSubscription = null;
+    _syncSessionMessages();
     state = state.copyWith(isStreaming: false);
   }
 
@@ -180,5 +301,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }).toList();
 
     state = state.copyWith(messages: updated);
+  }
+
+  /// Copies current messages into the active session's message list.
+  void _syncSessionMessages() {
+    final sid = state.activeSessionId;
+    if (sid == 'new') return;
+    final session = state.sessions[sid];
+    if (session == null) return;
+    session.messages
+      ..clear()
+      ..addAll(state.messages);
   }
 }

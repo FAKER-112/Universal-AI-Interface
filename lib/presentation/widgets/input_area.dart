@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 
 import 'package:ai_client_service/core/theme/app_theme.dart';
 
-/// ChatGPT-style input area: rounded pill field with "+" and image icons on
-/// the left, placeholder text, and a circular send button on the right.
-/// Includes focus micro-animation and an expandable advanced options row.
+/// Modern expandable input area. The text field grows as the user types more
+/// lines (up to ~40% of screen height) and shrinks back when text is removed.
+/// Clean rounded design with left-side action icons and a circular send button.
 class InputAreaWidget extends StatefulWidget {
   const InputAreaWidget({
     super.key,
@@ -25,6 +25,7 @@ class InputAreaWidget extends StatefulWidget {
 class _InputAreaWidgetState extends State<InputAreaWidget> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
+  final _scrollController = ScrollController();
   bool _focused = false;
   bool _showAdvanced = false;
 
@@ -48,6 +49,7 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -56,6 +58,9 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
+    final screenH = MediaQuery.sizeOf(context).height;
+    // Max height = 40% of screen so user can see conversation above
+    final maxFieldHeight = (screenH * 0.4).clamp(120.0, 400.0);
 
     return SafeArea(
       top: false,
@@ -63,29 +68,29 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 780),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // -- Input pill --
+                // -- Main input container --
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
                   decoration: BoxDecoration(
                     color: chatExt.inputBg,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: _focused
-                          ? cs.primary.withValues(alpha: 0.5)
+                          ? cs.primary.withValues(alpha: 0.45)
                           : chatExt.subtleBorder,
                       width: _focused ? 1.5 : 1,
                     ),
                     boxShadow: _focused
                         ? [
                             BoxShadow(
-                              color: cs.primary.withValues(alpha: 0.08),
-                              blurRadius: 12,
-                              spreadRadius: 1,
+                              color: cs.primary.withValues(alpha: 0.06),
+                              blurRadius: 10,
+                              spreadRadius: 0,
                             ),
                           ]
                         : [],
@@ -93,140 +98,134 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // "+" button
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6, bottom: 6),
-                            child: IconButton(
-                              onPressed: () {},
-                              icon: Icon(
-                                Icons.add_circle_outline,
-                                size: 22,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.6,
-                                ),
-                              ),
-                              tooltip: 'Attach file',
-                              splashRadius: 18,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-
-                          // Image upload
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: IconButton(
-                              onPressed: () {},
-                              icon: Icon(
-                                Icons.image_outlined,
-                                size: 20,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.6,
-                                ),
-                              ),
-                              tooltip: 'Upload image',
-                              splashRadius: 18,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-
-                          // Text field
-                          Expanded(
-                            child: KeyboardListener(
-                              focusNode: FocusNode(),
-                              onKeyEvent: (event) {
-                                if (event is KeyDownEvent &&
-                                    event.logicalKey ==
-                                        LogicalKeyboardKey.enter &&
-                                    !HardwareKeyboard.instance.isShiftPressed) {
-                                  _submit();
-                                }
-                              },
-                              child: TextField(
-                                controller: _controller,
-                                focusNode: _focusNode,
-                                maxLines: 6,
-                                minLines: 1,
-                                textInputAction: TextInputAction.newline,
-                                style: tt.bodyMedium?.copyWith(
-                                  color: cs.onSurface,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: widget.isStreaming
-                                      ? 'Waiting for response...'
-                                      : 'Ask anything...',
-                                  hintStyle: tt.bodyMedium?.copyWith(
-                                    color: cs.onSurfaceVariant.withValues(
-                                      alpha: 0.45,
+                      // -- Expandable text field --
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: 48,
+                          maxHeight: maxFieldHeight,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            // Text field -- takes full width, grows vertically
+                            Expanded(
+                              child: Scrollbar(
+                                controller: _scrollController,
+                                thumbVisibility: false,
+                                child: KeyboardListener(
+                                  focusNode: FocusNode(),
+                                  onKeyEvent: (event) {
+                                    if (event is KeyDownEvent &&
+                                        event.logicalKey ==
+                                            LogicalKeyboardKey.enter &&
+                                        !HardwareKeyboard
+                                            .instance
+                                            .isShiftPressed) {
+                                      _submit();
+                                    }
+                                  },
+                                  child: TextField(
+                                    controller: _controller,
+                                    focusNode: _focusNode,
+                                    scrollController: _scrollController,
+                                    maxLines: null, // unlimited growth
+                                    textInputAction: TextInputAction.newline,
+                                    style: tt.bodyMedium?.copyWith(
+                                      color: cs.onSurface,
+                                      height: 1.45,
                                     ),
+                                    decoration: InputDecoration(
+                                      hintText: widget.isStreaming
+                                          ? 'Waiting for response...'
+                                          : 'Ask anything...',
+                                      hintStyle: tt.bodyMedium?.copyWith(
+                                        color: cs.onSurfaceVariant.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                      ),
+                                      border: InputBorder.none,
+                                      filled: false,
+                                      contentPadding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        14,
+                                        8,
+                                        14,
+                                      ),
+                                      isDense: true,
+                                    ),
+                                    enabled: !widget.isStreaming,
+                                    onSubmitted: (_) => _submit(),
                                   ),
-                                  border: InputBorder.none,
-                                  filled: false,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  isDense: true,
                                 ),
-                                enabled: !widget.isStreaming,
-                                onSubmitted: (_) => _submit(),
                               ),
                             ),
-                          ),
 
-                          // Advanced toggle
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: IconButton(
+                            // Send / Stop button
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                right: 6,
+                                bottom: 6,
+                              ),
+                              child: widget.isStreaming
+                                  ? _CircleActionButton(
+                                      onPressed: widget.onStop,
+                                      icon: Icons.stop_rounded,
+                                      filled: true,
+                                      colorScheme: cs,
+                                    )
+                                  : ValueListenableBuilder<TextEditingValue>(
+                                      valueListenable: _controller,
+                                      builder: (context, value, _) {
+                                        final active = value.text
+                                            .trim()
+                                            .isNotEmpty;
+                                        return _CircleActionButton(
+                                          onPressed: active ? _submit : null,
+                                          icon: Icons.arrow_upward_rounded,
+                                          filled: active,
+                                          colorScheme: cs,
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // -- Bottom toolbar: attach icons + advanced --
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+                        child: Row(
+                          children: [
+                            // Attach file
+                            _ToolbarIcon(
+                              icon: Icons.add_circle_outline,
+                              tooltip: 'Attach file',
+                              onPressed: () {},
+                              colorScheme: cs,
+                            ),
+                            // Image upload
+                            _ToolbarIcon(
+                              icon: Icons.image_outlined,
+                              tooltip: 'Upload image',
+                              onPressed: () {},
+                              colorScheme: cs,
+                            ),
+
+                            const Spacer(),
+
+                            // Advanced toggle
+                            _ToolbarIcon(
+                              icon: Icons.tune,
+                              tooltip: 'Advanced options',
+                              active: _showAdvanced,
                               onPressed: () => setState(
                                 () => _showAdvanced = !_showAdvanced,
                               ),
-                              icon: AnimatedRotation(
-                                turns: _showAdvanced ? 0.5 : 0,
-                                duration: const Duration(milliseconds: 200),
-                                child: Icon(
-                                  Icons.tune,
-                                  size: 20,
-                                  color: _showAdvanced
-                                      ? cs.primary
-                                      : cs.onSurfaceVariant.withValues(
-                                          alpha: 0.6,
-                                        ),
-                                ),
-                              ),
-                              tooltip: 'Advanced options',
-                              splashRadius: 18,
-                              visualDensity: VisualDensity.compact,
+                              colorScheme: cs,
                             ),
-                          ),
-
-                          // Send / Stop button
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6, bottom: 6),
-                            child: widget.isStreaming
-                                ? _CircleActionButton(
-                                    onPressed: widget.onStop,
-                                    icon: Icons.stop_rounded,
-                                    filled: true,
-                                    colorScheme: cs,
-                                  )
-                                : ValueListenableBuilder<TextEditingValue>(
-                                    valueListenable: _controller,
-                                    builder: (context, value, _) {
-                                      final active = value.text
-                                          .trim()
-                                          .isNotEmpty;
-                                      return _CircleActionButton(
-                                        onPressed: active ? _submit : null,
-                                        icon: Icons.arrow_upward_rounded,
-                                        filled: active,
-                                        colorScheme: cs,
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
 
                       // -- Advanced options row --
@@ -267,16 +266,76 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
 
                 // -- Disclaimer --
                 Padding(
-                  padding: const EdgeInsets.only(top: 6, bottom: 2),
+                  padding: const EdgeInsets.only(top: 4, bottom: 2),
                   child: Text(
                     'AI can make mistakes. Verify important information.',
                     style: tt.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                       fontSize: 11,
                     ),
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Small toolbar icon button
+// ---------------------------------------------------------------------------
+
+class _ToolbarIcon extends StatefulWidget {
+  const _ToolbarIcon({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    required this.colorScheme,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final ColorScheme colorScheme;
+  final bool active;
+
+  @override
+  State<_ToolbarIcon> createState() => _ToolbarIconState();
+}
+
+class _ToolbarIconState extends State<_ToolbarIcon> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.colorScheme;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Tooltip(
+        message: widget.tooltip,
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: _hovered || widget.active
+                  ? cs.onSurface.withValues(alpha: 0.06)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              widget.icon,
+              size: 20,
+              color: widget.active
+                  ? cs.primary
+                  : cs.onSurfaceVariant.withValues(alpha: 0.55),
             ),
           ),
         ),

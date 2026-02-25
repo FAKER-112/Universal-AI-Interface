@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:ai_client_service/core/theme/app_theme.dart';
+import 'package:ai_client_service/data/models/provider.dart';
 import 'package:ai_client_service/presentation/providers/chat_provider.dart';
 import 'package:ai_client_service/presentation/providers/provider_config_provider.dart';
+import 'package:ai_client_service/presentation/providers/saved_configs_provider.dart';
 import 'package:ai_client_service/presentation/widgets/message_list.dart';
 import 'package:ai_client_service/presentation/widgets/input_area.dart';
 import 'package:ai_client_service/presentation/widgets/model_config_panel.dart';
@@ -17,6 +20,7 @@ class ChatScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chatState = ref.watch(chatNotifierProvider);
     final providerConfig = ref.watch(providerConfigProvider);
+    final savedConfigs = ref.watch(savedConfigsProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
@@ -45,9 +49,110 @@ class ChatScreen extends ConsumerWidget {
                     ),
                   ),
 
-                // Model selector chip -- tapping opens the config panel
-                GestureDetector(
-                  onTap: () => showModelConfigPanel(context),
+                // Model selector dropdown
+                PopupMenuButton<String>(
+                  tooltip: 'Select model configuration',
+                  offset: const Offset(0, 42),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  itemBuilder: (ctx) => [
+                    // Saved configs
+                    ...savedConfigs.map(
+                      (config) => PopupMenuItem<String>(
+                        value: 'select_${config.id}',
+                        child: Row(
+                          children: [
+                            Icon(
+                              config.type == ProviderType.openai
+                                  ? Icons.cloud_outlined
+                                  : Icons.computer,
+                              size: 16,
+                              color: config.id == providerConfig.id
+                                  ? cs.primary
+                                  : cs.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    config.name,
+                                    style: tt.bodySmall?.copyWith(
+                                      fontWeight: config.id == providerConfig.id
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: config.id == providerConfig.id
+                                          ? cs.primary
+                                          : null,
+                                    ),
+                                  ),
+                                  Text(
+                                    config.modelName,
+                                    style: tt.labelSmall?.copyWith(
+                                      color: cs.onSurfaceVariant.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (config.id == providerConfig.id)
+                              Icon(Icons.check, size: 16, color: cs.primary),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const PopupMenuDivider(),
+
+                    // Edit current
+                    PopupMenuItem<String>(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.tune,
+                            size: 16,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          Text('Edit current', style: tt.bodySmall),
+                        ],
+                      ),
+                    ),
+
+                    // Save current as new preset
+                    PopupMenuItem<String>(
+                      value: 'save_as',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.save_outlined,
+                            size: 16,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          Text('Save as preset', style: tt.bodySmall),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      showModelConfigPanel(context);
+                    } else if (value == 'save_as') {
+                      _saveAsPreset(context, ref, providerConfig);
+                    } else if (value.startsWith('select_')) {
+                      final id = value.substring(7);
+                      final config = savedConfigs.firstWhere((c) => c.id == id);
+                      ref.read(providerConfigProvider.notifier).update(config);
+                    }
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -73,8 +178,8 @@ class ChatScreen extends ConsumerWidget {
                         ),
                         const SizedBox(width: 4),
                         Icon(
-                          Icons.tune,
-                          size: 14,
+                          Icons.keyboard_arrow_down,
+                          size: 16,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                         ),
                       ],
@@ -91,18 +196,23 @@ class ChatScreen extends ConsumerWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: providerConfig.apiKey.isEmpty
+                    color:
+                        providerConfig.apiKey.isEmpty &&
+                            providerConfig.type == ProviderType.openai
                         ? cs.tertiaryContainer.withValues(alpha: 0.4)
                         : cs.primaryContainer.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    providerConfig.apiKey.isEmpty
+                    providerConfig.apiKey.isEmpty &&
+                            providerConfig.type == ProviderType.openai
                         ? 'Mock'
                         : providerConfig.name,
                     style: tt.labelSmall?.copyWith(
                       fontWeight: FontWeight.w500,
-                      color: providerConfig.apiKey.isEmpty
+                      color:
+                          providerConfig.apiKey.isEmpty &&
+                              providerConfig.type == ProviderType.openai
                           ? cs.onTertiaryContainer
                           : cs.onPrimaryContainer,
                       fontSize: 10,
@@ -159,6 +269,65 @@ class ChatScreen extends ConsumerWidget {
           },
         ),
       ],
+    );
+  }
+
+  void _saveAsPreset(
+    BuildContext context,
+    WidgetRef ref,
+    ProviderConfig config,
+  ) {
+    final nameCtrl = TextEditingController(text: config.name);
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          title: const Text('Save as preset'),
+          content: TextField(
+            controller: nameCtrl,
+            decoration: InputDecoration(
+              labelText: 'Preset name',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            autofocus: true,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final newConfig = config.copyWith(
+                  id: const Uuid().v4(),
+                  name: nameCtrl.text.trim().isEmpty
+                      ? config.name
+                      : nameCtrl.text.trim(),
+                );
+                ref.read(savedConfigsProvider.notifier).add(newConfig);
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Preset "${newConfig.name}" saved'),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
+              },
+              style: FilledButton.styleFrom(backgroundColor: cs.primary),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

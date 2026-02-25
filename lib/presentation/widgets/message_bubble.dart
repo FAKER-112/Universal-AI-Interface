@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:flutter_highlight/themes/monokai-sublime.dart';
+import 'package:flutter_highlight/themes/atom-one-dark.dart';
+import 'package:flutter_highlight/themes/atom-one-light.dart';
 import 'package:highlight/highlight.dart' show highlight;
 import 'package:markdown/markdown.dart' as md;
+import 'package:flutter_tts/flutter_tts.dart';
 
 import 'package:ai_client_service/core/theme/app_theme.dart';
 import 'package:ai_client_service/data/models/chat_message.dart';
@@ -179,10 +181,9 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
   Widget _buildMarkdown(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
 
-    final inlineCodeBg = isDark
+    final inlineCodeBg = Theme.of(context).brightness == Brightness.dark
         ? cs.onSurface.withValues(alpha: 0.08)
         : cs.onSurface.withValues(alpha: 0.06);
 
@@ -275,13 +276,57 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
 }
 
 // ---------------------------------------------------------------------------
-// Inline message action buttons (Copy / Regenerate / Like / Dislike)
+// Inline message action buttons (Copy / Regenerate / Read Aloud / Like / Dislike)
 // ---------------------------------------------------------------------------
 
-class _MessageActions extends StatelessWidget {
+/// Global TTS instance shared across all message bubbles.
+final _tts = FlutterTts();
+
+class _MessageActions extends StatefulWidget {
   const _MessageActions({required this.message, required this.hovered});
   final ChatMessage message;
   final bool hovered;
+
+  @override
+  State<_MessageActions> createState() => _MessageActionsState();
+}
+
+class _MessageActionsState extends State<_MessageActions> {
+  bool _isSpeaking = false;
+
+  /// Strips basic markdown formatting for cleaner TTS output.
+  String _stripMarkdown(String text) {
+    return text
+        .replaceAll(RegExp(r'```[\s\S]*?```'), '') // code blocks
+        .replaceAll(RegExp(r'`[^`]+`'), '') // inline code
+        .replaceAll(RegExp(r'\*\*([^*]+)\*\*'), r'$1') // bold
+        .replaceAll(RegExp(r'\*([^*]+)\*'), r'$1') // italic
+        .replaceAll(RegExp(r'#{1,6}\s*'), '') // headings
+        .replaceAll(RegExp(r'\[([^\]]+)\]\([^)]+\)'), r'$1') // links
+        .replaceAll(RegExp(r'---+'), '') // hr
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n') // excess newlines
+        .trim();
+  }
+
+  Future<void> _toggleReadAloud() async {
+    if (_isSpeaking) {
+      await _tts.stop();
+      setState(() => _isSpeaking = false);
+    } else {
+      setState(() => _isSpeaking = true);
+      final text = _stripMarkdown(widget.message.content);
+      _tts.setCompletionHandler(() {
+        if (mounted) setState(() => _isSpeaking = false);
+      });
+      await _tts.speak(text);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_isSpeaking) _tts.stop();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -289,7 +334,7 @@ class _MessageActions extends StatelessWidget {
     final isMobile = MediaQuery.sizeOf(context).width < 600;
 
     return AnimatedOpacity(
-      opacity: (hovered || isMobile) ? 1.0 : 0.0,
+      opacity: (widget.hovered || isMobile) ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 200),
       child: Padding(
         padding: const EdgeInsets.only(left: 42, top: 6),
@@ -300,7 +345,7 @@ class _MessageActions extends StatelessWidget {
               icon: Icons.copy_outlined,
               tooltip: 'Copy',
               onPressed: () {
-                Clipboard.setData(ClipboardData(text: message.content));
+                Clipboard.setData(ClipboardData(text: widget.message.content));
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text('Copied to clipboard'),
@@ -319,6 +364,13 @@ class _MessageActions extends StatelessWidget {
               onPressed: () {
                 // Placeholder for regeneration
               },
+            ),
+            _ActionIconButton(
+              icon: _isSpeaking
+                  ? Icons.stop_circle_outlined
+                  : Icons.volume_up_outlined,
+              tooltip: _isSpeaking ? 'Stop reading' : 'Read aloud',
+              onPressed: _toggleReadAloud,
             ),
             _ActionIconButton(
               icon: Icons.thumb_up_outlined,
@@ -389,7 +441,7 @@ class _ActionIconButtonState extends State<_ActionIconButton> {
 }
 
 // ---------------------------------------------------------------------------
-// Code block builder with syntax highlighting + header bar
+// Code block builder with colorful syntax highlighting + header bar
 // ---------------------------------------------------------------------------
 
 class _CodeBlockBuilder extends MarkdownElementBuilder {
@@ -410,6 +462,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
 
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final result = (language != null && language.isNotEmpty)
         ? highlight.parse(code, language: language)
@@ -449,7 +502,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.all(14),
             child: SelectableText.rich(
-              _buildHighlightedSpan(result.nodes!),
+              _buildHighlightedSpan(result.nodes!, isDark),
               style: const TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 13,
@@ -462,29 +515,47 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     );
   }
 
-  TextSpan _buildHighlightedSpan(List<dynamic> nodes) {
+  TextSpan _buildHighlightedSpan(
+    List<dynamic> nodes,
+    bool isDark, [
+    String? parentClassName,
+  ]) {
     final spans = <InlineSpan>[];
     for (final node in nodes) {
+      // Use this node's className if set, otherwise inherit parent's
+      final effectiveClass = node.className ?? parentClassName;
+
       if (node.value != null) {
         spans.add(
           TextSpan(
             text: node.value,
-            style: node.className != null
-                ? _themeStyle(node.className!)
-                : const TextStyle(color: Color(0xFFF8F8F2)),
+            style: effectiveClass != null
+                ? _themeStyle(effectiveClass, isDark)
+                : TextStyle(
+                    color: isDark
+                        ? const Color(0xFFABB2BF)
+                        : const Color(0xFF383A42),
+                  ),
           ),
         );
       } else if (node.children != null) {
-        spans.add(_buildHighlightedSpan(node.children!));
+        // Pass the effective class down so children inherit it
+        spans.add(
+          _buildHighlightedSpan(node.children!, isDark, effectiveClass),
+        );
       }
     }
     return TextSpan(children: spans);
   }
 
-  TextStyle? _themeStyle(String className) {
-    final theme = monokaiSublimeTheme;
+  TextStyle? _themeStyle(String className, bool isDark) {
+    final theme = isDark ? atomOneDarkTheme : atomOneLightTheme;
     final entry = theme[className];
-    if (entry == null) return const TextStyle(color: Color(0xFFF8F8F2));
+    if (entry == null) {
+      return TextStyle(
+        color: isDark ? const Color(0xFFABB2BF) : const Color(0xFF383A42),
+      );
+    }
     return TextStyle(
       color: entry.color,
       fontWeight: entry.fontWeight,
@@ -591,7 +662,6 @@ class _StreamingDotsState extends State<_StreamingDots>
           children: List.generate(3, (i) {
             final delay = i * 0.2;
             final t = ((_ctrl.value - delay) % 1.0).clamp(0.0, 1.0);
-            // Spring-like bounce: starts small, grows, shrinks
             final scale =
                 0.6 +
                 0.4 *

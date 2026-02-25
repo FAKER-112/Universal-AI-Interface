@@ -64,7 +64,7 @@ class _AppShellState extends State<AppShell> {
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            width: _sidebarOpen ? 280 : 0,
+            width: _sidebarOpen ? 260 : 0,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(color: chatExt.sidebarBg),
             child: _sidebarOpen
@@ -120,7 +120,6 @@ class _AppShellState extends State<AppShell> {
               padding: const EdgeInsets.only(bottom: 8),
               child: IconButton(
                 onPressed: () {
-                  // Open full drawer for tablet
                   _scaffoldKey.currentState?.openDrawer();
                 },
                 icon: const Icon(Icons.menu, size: 22),
@@ -192,64 +191,51 @@ class _AppShellState extends State<AppShell> {
 }
 
 // ===========================================================================
-// Desktop sidebar (full, in-view)
+// Desktop sidebar -- minimalistic design
 // ===========================================================================
 
-class _DesktopSidebar extends ConsumerStatefulWidget {
+class _DesktopSidebar extends ConsumerWidget {
   const _DesktopSidebar({required this.onCollapse});
   final VoidCallback onCollapse;
 
   @override
-  ConsumerState<_DesktopSidebar> createState() => _DesktopSidebarState();
-}
-
-class _DesktopSidebarState extends ConsumerState<_DesktopSidebar> {
-  final _searchCtrl = TextEditingController();
-  String _searchQuery = '';
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
     final settings = ref.watch(appSettingsProvider);
+    final chatState = ref.watch(chatNotifierProvider);
     final location = GoRouterState.of(context).uri.toString();
     final isSettings = location.startsWith('/settings');
 
     return SizedBox(
-      width: 280,
+      width: 260,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // -- Header --
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 8, 4),
+            padding: const EdgeInsets.fromLTRB(14, 14, 6, 4),
             child: Row(
               children: [
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [cs.primary, cs.tertiary],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(9),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     Icons.auto_awesome,
                     color: cs.onPrimary,
-                    size: 16,
+                    size: 14,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'AI Client',
@@ -257,10 +243,11 @@ class _DesktopSidebarState extends ConsumerState<_DesktopSidebar> {
                   ),
                 ),
                 IconButton(
-                  onPressed: widget.onCollapse,
-                  icon: const Icon(Icons.menu_open, size: 20),
+                  onPressed: onCollapse,
+                  icon: const Icon(Icons.menu_open, size: 18),
                   tooltip: 'Collapse sidebar',
                   splashRadius: 16,
+                  iconSize: 18,
                 ),
               ],
             ),
@@ -268,86 +255,43 @@ class _DesktopSidebarState extends ConsumerState<_DesktopSidebar> {
 
           // -- New Chat --
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             child: SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: () {
-                  ref.read(chatNotifierProvider.notifier).loadHistory();
+                  ref.read(chatNotifierProvider.notifier).newChat();
                   context.go('/chat/new');
                 },
-                icon: const Icon(Icons.add, size: 18),
+                icon: const Icon(Icons.add, size: 16),
                 label: const Text('New chat'),
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  textStyle: tt.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ),
           ),
 
-          // -- Search --
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: TextField(
-              controller: _searchCtrl,
-              onChanged: (v) => setState(() => _searchQuery = v),
-              style: tt.bodySmall,
-              decoration: InputDecoration(
-                hintText: 'Search chats...',
-                hintStyle: tt.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                ),
-                prefixIcon: Icon(
-                  Icons.search,
-                  size: 18,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                ),
-                filled: true,
-                fillColor: chatExt.sidebarHover,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-                isDense: true,
-              ),
-            ),
-          ),
+          const SizedBox(height: 4),
 
-          const SizedBox(height: 8),
-
-          // -- Section label --
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-            child: Text(
-              'Your chats',
-              style: tt.labelSmall?.copyWith(
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-
-          // -- Chat history --
+          // -- Chat history (real sessions) --
           Expanded(
-            child: _ChatHistoryList(
-              searchQuery: _searchQuery,
-              chatExt: chatExt,
-            ),
+            child: _ChatHistoryList(chatState: chatState, chatExt: chatExt),
           ),
 
-          Divider(indent: 12, endIndent: 12, color: chatExt.subtleBorder),
+          Divider(indent: 10, endIndent: 10, color: chatExt.subtleBorder),
 
-          // -- Footer: Settings + Theme toggle + Profile --
+          // -- Footer: Settings + Theme toggle --
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
             child: Column(
               children: [
-                // Settings
                 _SidebarTile(
                   icon: Icons.settings_outlined,
                   label: 'Settings',
@@ -355,7 +299,6 @@ class _DesktopSidebarState extends ConsumerState<_DesktopSidebar> {
                   onTap: () => context.go('/settings'),
                 ),
                 const SizedBox(height: 2),
-                // Theme toggle
                 _SidebarTile(
                   icon: settings.themeMode == ThemeMode.dark
                       ? Icons.light_mode_outlined
@@ -393,6 +336,7 @@ class _MobileDrawer extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
+    final chatState = ref.watch(chatNotifierProvider);
     final w = MediaQuery.sizeOf(context).width;
 
     return Drawer(
@@ -408,21 +352,21 @@ class _MobileDrawer extends ConsumerWidget {
               child: Row(
                 children: [
                   Container(
-                    width: 30,
-                    height: 30,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [cs.primary, cs.tertiary],
                       ),
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
                       Icons.auto_awesome,
                       color: cs.onPrimary,
-                      size: 16,
+                      size: 14,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Text(
                     'AI Client',
                     style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -433,21 +377,21 @@ class _MobileDrawer extends ConsumerWidget {
 
             // New chat
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: () {
-                    ref.read(chatNotifierProvider.notifier).loadHistory();
+                    ref.read(chatNotifierProvider.notifier).newChat();
                     context.go('/chat/new');
-                    Navigator.of(context).pop(); // close drawer
+                    Navigator.of(context).pop();
                   },
-                  icon: const Icon(Icons.add, size: 18),
+                  icon: const Icon(Icons.add, size: 16),
                   label: const Text('New chat'),
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                 ),
@@ -456,29 +400,18 @@ class _MobileDrawer extends ConsumerWidget {
 
             const SizedBox(height: 4),
 
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text(
-                'Your chats',
-                style: tt.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-
             Expanded(
               child: _ChatHistoryList(
-                searchQuery: '',
+                chatState: chatState,
                 chatExt: chatExt,
                 onTap: () => Navigator.of(context).pop(),
               ),
             ),
 
-            Divider(indent: 12, endIndent: 12, color: chatExt.subtleBorder),
+            Divider(indent: 10, endIndent: 10, color: chatExt.subtleBorder),
 
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
               child: _SidebarTile(
                 icon: Icons.settings_outlined,
                 label: 'Settings',
@@ -496,82 +429,94 @@ class _MobileDrawer extends ConsumerWidget {
 }
 
 // ===========================================================================
-// Chat history list
+// Chat history list -- reads from real ChatState.sessions
 // ===========================================================================
 
-class _ChatHistoryList extends StatelessWidget {
+class _ChatHistoryList extends ConsumerWidget {
   const _ChatHistoryList({
-    required this.searchQuery,
+    required this.chatState,
     required this.chatExt,
     this.onTap,
   });
 
-  final String searchQuery;
+  final ChatState chatState;
   final ChatThemeExtension chatExt;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-
-    // Placeholder data
-    final allSessions = [
-      _HistoryItem('Dart Streams Overview', 'Today'),
-      _HistoryItem('Flutter Layout Help', 'Today'),
-      _HistoryItem('Riverpod State Setup', 'Yesterday'),
-      _HistoryItem('REST API Design', 'Yesterday'),
-      _HistoryItem('Docker Compose Guide', '2 days ago'),
-    ];
-
-    final sessions = searchQuery.isEmpty
-        ? allSessions
-        : allSessions
-              .where(
-                (s) =>
-                    s.title.toLowerCase().contains(searchQuery.toLowerCase()),
-              )
-              .toList();
+    final sessions = chatState.sortedSessions;
 
     if (sessions.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(
-            searchQuery.isEmpty ? 'No conversations yet' : 'No results',
-            style: tt.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.chat_bubble_outline,
+                size: 28,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'No conversations yet',
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       itemCount: sessions.length,
       itemBuilder: (context, index) {
-        final s = sessions[index];
-        return _ChatHistoryTile(item: s, chatExt: chatExt, onTap: onTap);
+        final session = sessions[index];
+        final isActive = session.id == chatState.activeSessionId;
+
+        return _ChatHistoryTile(
+          session: session,
+          isActive: isActive,
+          chatExt: chatExt,
+          onTap: () {
+            ref.read(chatNotifierProvider.notifier).switchSession(session.id);
+            context.go('/chat/${session.id}');
+            onTap?.call();
+          },
+          onDelete: () {
+            ref.read(chatNotifierProvider.notifier).deleteSession(session.id);
+          },
+        );
       },
     );
   }
 }
 
 // ===========================================================================
-// Single history tile with hover + context menu
+// Single history tile - minimal: title only, time on hover
 // ===========================================================================
 
 class _ChatHistoryTile extends StatefulWidget {
   const _ChatHistoryTile({
-    required this.item,
+    required this.session,
+    required this.isActive,
     required this.chatExt,
-    this.onTap,
+    required this.onTap,
+    required this.onDelete,
   });
 
-  final _HistoryItem item;
+  final ChatSessionData session;
+  final bool isActive;
   final ChatThemeExtension chatExt;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   @override
   State<_ChatHistoryTile> createState() => _ChatHistoryTileState();
@@ -595,80 +540,61 @@ class _ChatHistoryTileState extends State<_ChatHistoryTile> {
           margin: const EdgeInsets.symmetric(vertical: 1),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: _hovered ? widget.chatExt.sidebarHover : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            color: widget.isActive
+                ? cs.primaryContainer.withValues(alpha: 0.3)
+                : _hovered
+                ? widget.chatExt.sidebarHover
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.chat_bubble_outline,
-                size: 16,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      widget.item.title,
+                      widget.session.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: tt.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
+                        fontWeight: widget.isActive
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: widget.isActive ? cs.primary : null,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.item.timeLabel,
-                      style: tt.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                        fontSize: 10,
+                    // Show time label on hover or when active
+                    if (_hovered || widget.isActive)
+                      Text(
+                        widget.session.timeLabel,
+                        style: tt.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                          fontSize: 10,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
+
+              // Delete button on hover
               AnimatedOpacity(
                 opacity: _hovered ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 150),
                 child: SizedBox(
                   width: 28,
                   height: 28,
-                  child: PopupMenuButton<String>(
+                  child: IconButton(
+                    onPressed: widget.onDelete,
                     icon: Icon(
-                      Icons.more_horiz,
-                      size: 16,
-                      color: cs.onSurfaceVariant,
+                      Icons.close,
+                      size: 14,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
                     padding: EdgeInsets.zero,
-                    iconSize: 16,
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                        value: 'rename',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_outlined, size: 16),
-                            SizedBox(width: 8),
-                            Text('Rename'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, size: 16),
-                            SizedBox(width: 8),
-                            Text('Delete'),
-                          ],
-                        ),
-                      ),
-                    ],
-                    onSelected: (value) {
-                      // Placeholder -- will hook into persistence later
-                    },
+                    splashRadius: 12,
+                    tooltip: 'Delete',
                   ),
                 ),
               ),
@@ -717,27 +643,27 @@ class _SidebarTileState extends State<_SidebarTile> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: widget.selected
                 ? cs.primaryContainer.withValues(alpha: 0.3)
                 : _hovered
                 ? chatExt.sidebarHover
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
               Icon(
                 widget.icon,
-                size: 20,
+                size: 18,
                 color: widget.selected ? cs.primary : cs.onSurfaceVariant,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   widget.label,
-                  style: tt.bodyMedium?.copyWith(
+                  style: tt.bodySmall?.copyWith(
                     color: widget.selected ? cs.primary : cs.onSurface,
                     fontWeight: widget.selected
                         ? FontWeight.w600
@@ -751,14 +677,4 @@ class _SidebarTileState extends State<_SidebarTile> {
       ),
     );
   }
-}
-
-// ===========================================================================
-// Data
-// ===========================================================================
-
-class _HistoryItem {
-  _HistoryItem(this.title, this.timeLabel);
-  final String title;
-  final String timeLabel;
 }
