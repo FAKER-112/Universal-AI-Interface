@@ -4,17 +4,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:ai_client_service/data/models/chat_message.dart';
+import 'package:ai_client_service/data/models/provider.dart';
 import 'package:ai_client_service/data/repositories/chat_repository.dart';
 import 'package:ai_client_service/domain/repositories/ai_repository.dart';
+import 'package:ai_client_service/presentation/providers/provider_config_provider.dart';
+import 'package:ai_client_service/services/provider_factory.dart';
 
 // ---------------------------------------------------------------------------
 // Providers
 // ---------------------------------------------------------------------------
 
-/// The active [AIRepository] implementation. Swap this override in tests or
-/// when switching to a real provider.
+/// The active [AIRepository] implementation. Automatically rebuilds when the
+/// provider configuration changes. Falls back to [MockAIRepository] when no
+/// API key is configured for OpenAI.
 final aiRepositoryProvider = Provider<AIRepository>((ref) {
-  return MockAIRepository();
+  final config = ref.watch(providerConfigProvider);
+
+  // Use mock when no API key is set for providers that need one
+  if (config.type == ProviderType.openai && config.apiKey.trim().isEmpty) {
+    return MockAIRepository();
+  }
+
+  return RepositoryFactory.create(config);
 });
 
 /// Exposes the [ChatNotifier] and its [ChatState] to the widget tree.
@@ -92,36 +103,53 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // 3. Stream tokens from the repository.
     final buffer = StringBuffer();
 
-    _activeSubscription = _repository
-        .sendMessage(state.messages, prompt)
-        .listen(
-          (token) {
-            buffer.write(token);
-            _updateAssistantMessage(
-              assistantId,
-              buffer.toString(),
-              const MessageStatus.sending(),
-            );
-          },
-          onDone: () {
-            _updateAssistantMessage(
-              assistantId,
-              buffer.toString(),
-              const MessageStatus.sent(),
-            );
-            state = state.copyWith(isStreaming: false);
-            _activeSubscription = null;
-          },
-          onError: (Object error) {
-            _updateAssistantMessage(
-              assistantId,
-              buffer.toString(),
-              MessageStatus.error(error.toString()),
-            );
-            state = state.copyWith(isStreaming: false);
-            _activeSubscription = null;
-          },
-        );
+    try {
+      _activeSubscription = _repository
+          .sendMessage(state.messages, prompt)
+          .listen(
+            (token) {
+              buffer.write(token);
+              _updateAssistantMessage(
+                assistantId,
+                buffer.toString(),
+                const MessageStatus.sending(),
+              );
+            },
+            onDone: () {
+              _updateAssistantMessage(
+                assistantId,
+                buffer.toString(),
+                const MessageStatus.sent(),
+              );
+              state = state.copyWith(isStreaming: false);
+              _activeSubscription = null;
+            },
+            onError: (Object error) {
+              final errorMsg = error is Exception
+                  ? error.toString().replaceFirst('Exception: ', '')
+                  : error.toString();
+              _updateAssistantMessage(
+                assistantId,
+                buffer.isEmpty
+                    ? 'Error: $errorMsg'
+                    : '${buffer.toString()}\n\n---\n**Error:** $errorMsg',
+                MessageStatus.error(errorMsg),
+              );
+              state = state.copyWith(isStreaming: false);
+              _activeSubscription = null;
+            },
+          );
+    } catch (e) {
+      final errorMsg = e is Exception
+          ? e.toString().replaceFirst('Exception: ', '')
+          : e.toString();
+      _updateAssistantMessage(
+        assistantId,
+        'Error: $errorMsg',
+        MessageStatus.error(errorMsg),
+      );
+      state = state.copyWith(isStreaming: false);
+    }
   }
 
   /// Cancels an in-flight streaming response.

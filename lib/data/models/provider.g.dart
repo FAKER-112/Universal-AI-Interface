@@ -10,8 +10,9 @@ _$ProviderConfigImpl _$$ProviderConfigImplFromJson(Map<String, dynamic> json) =>
     _$ProviderConfigImpl(
       id: json['id'] as String,
       name: json['name'] as String,
+      type: $enumDecode(_$ProviderTypeEnumMap, json['type']),
       baseUrl: json['baseUrl'] as String,
-      apiKey: json['apiKey'] as String,
+      apiKey: json['apiKey'] as String? ?? '',
       modelName: json['modelName'] as String,
     );
 
@@ -20,7 +21,13 @@ Map<String, dynamic> _$$ProviderConfigImplToJson(
     <String, dynamic>{
       'id': instance.id,
       'name': instance.name,
+      'type': _$ProviderTypeEnumMap[instance.type]!,
       'baseUrl': instance.baseUrl,
       'apiKey': instance.apiKey,
       'modelName': instance.modelName,
     };
+
+const _$ProviderTypeEnumMap = {
+  ProviderType.openai: 'openai',
+  ProviderType.ollama: 'ollama',
+};

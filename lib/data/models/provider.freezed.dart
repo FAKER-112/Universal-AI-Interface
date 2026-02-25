@@ -22,6 +22,7 @@ ProviderConfig _$ProviderConfigFromJson(Map<String, dynamic> json) {
 mixin _$ProviderConfig {
   String get id => throw _privateConstructorUsedError;
   String get name => throw _privateConstructorUsedError;
+  ProviderType get type => throw _privateConstructorUsedError;
   String get baseUrl => throw _privateConstructorUsedError;
   String get apiKey => throw _privateConstructorUsedError;
   String get modelName => throw _privateConstructorUsedError;
@@ -41,6 +42,7 @@ abstract class $ProviderConfigCopyWith<$Res> {
   $Res call(
       {String id,
       String name,
+      ProviderType type,
       String baseUrl,
       String apiKey,
       String modelName});
@@ -61,6 +63,7 @@ class _$ProviderConfigCopyWithImpl<$Res, $Val extends ProviderConfig>
   $Res call({
     Object? id = null,
     Object? name = null,
+    Object? type = null,
     Object? baseUrl = null,
     Object? apiKey = null,
     Object? modelName = null,
@@ -74,6 +77,10 @@ class _$ProviderConfigCopyWithImpl<$Res, $Val extends ProviderConfig>
           ? _value.name
           : name // ignore: cast_nullable_to_non_nullable
               as String,
+      type: null == type
+          ? _value.type
+          : type // ignore: cast_nullable_to_non_nullable
+              as ProviderType,
       baseUrl: null == baseUrl
           ? _value.baseUrl
           : baseUrl // ignore: cast_nullable_to_non_nullable
@@ -101,6 +108,7 @@ abstract class _$$ProviderConfigImplCopyWith<$Res>
   $Res call(
       {String id,
       String name,
+      ProviderType type,
       String baseUrl,
       String apiKey,
       String modelName});
@@ -119,6 +127,7 @@ class __$$ProviderConfigImplCopyWithImpl<$Res>
   $Res call({
     Object? id = null,
     Object? name = null,
+    Object? type = null,
     Object? baseUrl = null,
     Object? apiKey = null,
     Object? modelName = null,
@@ -132,6 +141,10 @@ class __$$ProviderConfigImplCopyWithImpl<$Res>
           ? _value.name
           : name // ignore: cast_nullable_to_non_nullable
               as String,
+      type: null == type
+          ? _value.type
+          : type // ignore: cast_nullable_to_non_nullable
+              as ProviderType,
       baseUrl: null == baseUrl
           ? _value.baseUrl
           : baseUrl // ignore: cast_nullable_to_non_nullable
@@ -154,8 +167,9 @@ class _$ProviderConfigImpl implements _ProviderConfig {
   const _$ProviderConfigImpl(
       {required this.id,
       required this.name,
+      required this.type,
       required this.baseUrl,
-      required this.apiKey,
+      this.apiKey = '',
       required this.modelName});
 
   factory _$ProviderConfigImpl.fromJson(Map<String, dynamic> json) =>
@@ -166,15 +180,18 @@ class _$ProviderConfigImpl implements _ProviderConfig {
   @override
   final String name;
   @override
+  final ProviderType type;
+  @override
   final String baseUrl;
   @override
+  @JsonKey()
   final String apiKey;
   @override
   final String modelName;
 
   @override
   String toString() {
-    return 'ProviderConfig(id: $id, name: $name, baseUrl: $baseUrl, apiKey: $apiKey, modelName: $modelName)';
+    return 'ProviderConfig(id: $id, name: $name, type: $type, baseUrl: $baseUrl, apiKey: $apiKey, modelName: $modelName)';
   }
 
   @override
@@ -184,6 +201,7 @@ class _$ProviderConfigImpl implements _ProviderConfig {
             other is _$ProviderConfigImpl &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.name, name) || other.name == name) &&
+            (identical(other.type, type) || other.type == type) &&
             (identical(other.baseUrl, baseUrl) || other.baseUrl == baseUrl) &&
             (identical(other.apiKey, apiKey) || other.apiKey == apiKey) &&
             (identical(other.modelName, modelName) ||
@@ -193,7 +211,7 @@ class _$ProviderConfigImpl implements _ProviderConfig {
   @JsonKey(ignore: true)
   @override
   int get hashCode =>
-      Object.hash(runtimeType, id, name, baseUrl, apiKey, modelName);
+      Object.hash(runtimeType, id, name, type, baseUrl, apiKey, modelName);
 
   @JsonKey(ignore: true)
   @override
@@ -214,8 +232,9 @@ abstract class _ProviderConfig implements ProviderConfig {
   const factory _ProviderConfig(
       {required final String id,
       required final String name,
+      required final ProviderType type,
       required final String baseUrl,
-      required final String apiKey,
+      final String apiKey,
       required final String modelName}) = _$ProviderConfigImpl;
 
   factory _ProviderConfig.fromJson(Map<String, dynamic> json) =
@@ -225,6 +244,8 @@ abstract class _ProviderConfig implements ProviderConfig {
   String get id;
   @override
   String get name;
+  @override
+  ProviderType get type;
   @override
   String get baseUrl;
   @override

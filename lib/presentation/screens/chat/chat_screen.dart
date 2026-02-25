@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:ai_client_service/core/theme/app_theme.dart';
 import 'package:ai_client_service/presentation/providers/chat_provider.dart';
 import 'package:ai_client_service/presentation/widgets/message_list.dart';
 import 'package:ai_client_service/presentation/widgets/input_area.dart';
+import 'package:ai_client_service/presentation/widgets/model_selector.dart';
 
 class ChatScreen extends ConsumerWidget {
   const ChatScreen({super.key, required this.chatId});
@@ -14,33 +16,62 @@ class ChatScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chatState = ref.watch(chatNotifierProvider);
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
 
     return Column(
       children: [
-        // -- App bar area --
+        // -- Chat header with model selector --
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             color: cs.surface,
-            border: Border(
-              bottom: BorderSide(
-                color: cs.outlineVariant.withValues(alpha: 0.15),
-              ),
-            ),
+            border: Border(bottom: BorderSide(color: chatExt.subtleBorder)),
           ),
           child: SafeArea(
             bottom: false,
             child: Row(
               children: [
-                Icon(Icons.auto_awesome, size: 20, color: cs.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Chat',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                // Mobile hamburger (only visible when no sidebar)
+                if (MediaQuery.sizeOf(context).width < 600)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: IconButton(
+                      icon: const Icon(Icons.menu, size: 22),
+                      onPressed: () => Scaffold.of(context).openDrawer(),
+                      tooltip: 'Menu',
+                    ),
+                  ),
+
+                // Model selector
+                ModelSelector(
+                  currentModel: 'mock-model-v1',
+                  availableModels: const [
+                    'mock-model-v1',
+                    'mock-model-v2',
+                    'gpt-4o',
+                    'claude-3.5-sonnet',
+                  ],
+                  onModelChanged: (model) {
+                    // Will hook into provider configuration later
+                  },
+                ),
+
+                const SizedBox(width: 12),
+
+                // Chat title
+                Expanded(
+                  child: Text(
+                    chatState.messages.isEmpty ? 'New chat' : 'Chat',
+                    style: tt.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
+
+                // Stop streaming action
                 if (chatState.isStreaming)
                   TextButton.icon(
                     onPressed: () =>
@@ -53,6 +84,7 @@ class ChatScreen extends ConsumerWidget {
             ),
           ),
         ),
+
         // -- Messages --
         Expanded(
           child: chatState.messages.isEmpty
@@ -62,6 +94,7 @@ class ChatScreen extends ConsumerWidget {
                   isStreaming: chatState.isStreaming,
                 ),
         ),
+
         // -- Input --
         InputAreaWidget(
           isStreaming: chatState.isStreaming,
@@ -84,6 +117,8 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -108,18 +143,18 @@ class _EmptyState extends StatelessWidget {
               color: colorScheme.primary,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
             'What can I help you with?',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            style: tt.headlineSmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            'Type a message below to begin',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            'Ask anything -- I\'m here to help.',
+            style: tt.bodyMedium?.copyWith(
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
           ),

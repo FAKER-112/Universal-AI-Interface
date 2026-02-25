@@ -5,12 +5,13 @@ import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:highlight/highlight.dart' show highlight;
 import 'package:markdown/markdown.dart' as md;
 
+import 'package:ai_client_service/core/theme/app_theme.dart';
 import 'package:ai_client_service/data/models/chat_message.dart';
 
 /// A styled chat bubble that renders content as Markdown for assistant
-/// messages, with syntax-highlighted code blocks, language headers, and
-/// copy-to-clipboard support.
-class MessageBubbleWidget extends StatelessWidget {
+/// messages, with syntax-highlighted code blocks, language headers,
+/// copy-to-clipboard support, inline action buttons, and hover timestamps.
+class MessageBubbleWidget extends StatefulWidget {
   const MessageBubbleWidget({
     super.key,
     required this.message,
@@ -20,86 +21,176 @@ class MessageBubbleWidget extends StatelessWidget {
   final ChatMessage message;
   final bool isStreaming;
 
-  bool get _isUser => message.role is MessageRoleUser;
+  @override
+  State<MessageBubbleWidget> createState() => _MessageBubbleWidgetState();
+}
+
+class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
+  bool _hovered = false;
+
+  bool get _isUser => widget.message.role is MessageRoleUser;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    if (_isUser) {
-      return _buildUserBubble(context, cs, tt);
-    }
-    return _buildAssistantMessage(context, cs, tt);
-  }
-
-  // ---- User bubble (right-aligned, tinted) ----
-
-  Widget _buildUserBubble(BuildContext context, ColorScheme cs, TextTheme tt) {
-    final maxWidth = MediaQuery.sizeOf(context).width * 0.78;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        _RoleLabel(isUser: true),
-        Container(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.12),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(18),
-              topRight: Radius.circular(18),
-              bottomLeft: Radius.circular(18),
-              bottomRight: Radius.circular(4),
-            ),
-          ),
-          child: SelectableText(
-            message.content,
-            style: tt.bodyMedium?.copyWith(color: cs.onSurface, height: 1.5),
-          ),
-        ),
-      ],
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: _isUser ? _buildUserBubble(context) : _buildAssistantCard(context),
     );
   }
 
-  // ---- Assistant message (full-width, no bubble) ----
+  // ----------------------------------------------------------------
+  // User message: right-aligned, subtle filled, rounded rectangle
+  // ----------------------------------------------------------------
+  Widget _buildUserBubble(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
+    final maxWidth = MediaQuery.sizeOf(context).width * 0.72;
 
-  Widget _buildAssistantMessage(
-    BuildContext context,
-    ColorScheme cs,
-    TextTheme tt,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _RoleLabel(isUser: false),
-        _buildMarkdown(context),
-        if (isStreaming)
-          Padding(
-            padding: const EdgeInsets.only(left: 4, top: 4),
-            child: _StreamingDots(color: cs.primary),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Container(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: chatExt.userBubbleBg,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(18),
+                bottomRight: Radius.circular(4),
+              ),
+            ),
+            child: SelectableText(
+              widget.message.content,
+              style: tt.bodyMedium?.copyWith(color: cs.onSurface, height: 1.6),
+            ),
           ),
-      ],
+          // Hover timestamp
+          AnimatedOpacity(
+            opacity: _hovered ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4, right: 4),
+              child: Text(
+                _formatTimestamp(widget.message.timestamp),
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------------
+  // Assistant message: elevated card with avatar, markdown, actions
+  // ----------------------------------------------------------------
+  Widget _buildAssistantCard(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar + content row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Avatar circle
+              Container(
+                width: 30,
+                height: 30,
+                margin: const EdgeInsets.only(top: 2, right: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [cs.primary, cs.tertiary],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.auto_awesome, size: 14, color: cs.onPrimary),
+              ),
+
+              // Card content
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: chatExt.assistantCardBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: chatExt.assistantCardBorder),
+                    boxShadow: [
+                      BoxShadow(
+                        color: cs.shadow.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: _buildMarkdown(context),
+                ),
+              ),
+            ],
+          ),
+
+          // Streaming dots
+          if (widget.isStreaming)
+            Padding(
+              padding: const EdgeInsets.only(left: 42, top: 6),
+              child: _StreamingDots(color: cs.primary),
+            ),
+
+          // Action buttons row (shown on hover or always on mobile)
+          _MessageActions(message: widget.message, hovered: _hovered),
+
+          // Hover timestamp
+          AnimatedOpacity(
+            opacity: _hovered ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 42, top: 2),
+              child: Text(
+                _formatTimestamp(widget.message.timestamp),
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   // ---- Markdown body ----
-
   Widget _buildMarkdown(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
 
     final inlineCodeBg = isDark
         ? cs.onSurface.withValues(alpha: 0.08)
         : cs.onSurface.withValues(alpha: 0.06);
 
     return MarkdownBody(
-      data: message.content,
+      data: widget.message.content,
       selectable: true,
       extensionSet: md.ExtensionSet.gitHubWeb,
       styleSheet: MarkdownStyleSheet(
-        // --- Text ---
         p: tt.bodyMedium?.copyWith(color: cs.onSurface, height: 1.7),
         h1: tt.headlineSmall?.copyWith(
           color: cs.onSurface,
@@ -122,24 +213,17 @@ class MessageBubbleWidget extends StatelessWidget {
         ),
         strong: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface),
         em: TextStyle(fontStyle: FontStyle.italic, color: cs.onSurface),
-
-        // --- Inline code ---
         code: TextStyle(
           fontFamily: 'monospace',
           fontSize: (tt.bodyMedium?.fontSize ?? 14) * 0.9,
           color: cs.onSurface,
           backgroundColor: inlineCodeBg,
         ),
-
-        // --- Fenced code blocks (fallback styling; custom builder handles
-        //     syntax highlighting) ---
         codeblockDecoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E2E) : const Color(0xFF282C34),
+          color: chatExt.codeBg,
           borderRadius: BorderRadius.circular(12),
         ),
         codeblockPadding: const EdgeInsets.all(16),
-
-        // --- Blockquote ---
         blockquoteDecoration: BoxDecoration(
           color: cs.primary.withValues(alpha: 0.05),
           border: Border(left: BorderSide(color: cs.primary, width: 3)),
@@ -152,8 +236,6 @@ class MessageBubbleWidget extends StatelessWidget {
           horizontal: 16,
           vertical: 8,
         ),
-
-        // --- Tables ---
         tableBorder: TableBorder.all(
           color: cs.outlineVariant.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(8),
@@ -168,13 +250,9 @@ class MessageBubbleWidget extends StatelessWidget {
           horizontal: 12,
           vertical: 8,
         ),
-
-        // --- Lists ---
         listBullet: TextStyle(color: cs.primary),
         listIndent: 24,
         listBulletPadding: const EdgeInsets.only(right: 8),
-
-        // --- Spacing ---
         blockSpacing: 14,
         horizontalRuleDecoration: BoxDecoration(
           border: Border(
@@ -188,43 +266,123 @@ class MessageBubbleWidget extends StatelessWidget {
       builders: {'code': _CodeBlockBuilder()},
     );
   }
+
+  String _formatTimestamp(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Role label
+// Inline message action buttons (Copy / Regenerate / Like / Dislike)
 // ---------------------------------------------------------------------------
 
-class _RoleLabel extends StatelessWidget {
-  const _RoleLabel({required this.isUser});
-  final bool isUser;
+class _MessageActions extends StatelessWidget {
+  const _MessageActions({required this.message, required this.hovered});
+  final ChatMessage message;
+  final bool hovered;
+
+  @override
+  Widget build(BuildContext context) {
+    // Always show on mobile (no hover), show on hover for desktop
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+
+    return AnimatedOpacity(
+      opacity: (hovered || isMobile) ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 42, top: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ActionIconButton(
+              icon: Icons.copy_outlined,
+              tooltip: 'Copy',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: message.content));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Copied to clipboard'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
+              },
+            ),
+            _ActionIconButton(
+              icon: Icons.refresh_rounded,
+              tooltip: 'Regenerate',
+              onPressed: () {
+                // Placeholder for regeneration
+              },
+            ),
+            _ActionIconButton(
+              icon: Icons.thumb_up_outlined,
+              tooltip: 'Good response',
+              onPressed: () {},
+            ),
+            _ActionIconButton(
+              icon: Icons.thumb_down_outlined,
+              tooltip: 'Bad response',
+              onPressed: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionIconButton extends StatefulWidget {
+  const _ActionIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  State<_ActionIconButton> createState() => _ActionIconButtonState();
+}
+
+class _ActionIconButtonState extends State<_ActionIconButton> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return Padding(
-      padding: EdgeInsets.only(
-        left: isUser ? 0 : 4,
-        right: isUser ? 4 : 0,
-        bottom: 6,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isUser ? Icons.person_outline : Icons.auto_awesome,
-            size: 14,
-            color: isUser ? cs.primary : cs.tertiary,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            isUser ? 'You' : 'Assistant',
-            style: tt.labelSmall?.copyWith(
-              color: cs.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Tooltip(
+        message: widget.tooltip,
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: _hovered
+                  ? cs.onSurfaceVariant.withValues(alpha: 0.1)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              widget.icon,
+              size: 16,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -244,23 +402,15 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   ) {
     if (element.tag != 'code') return null;
 
-    // Detect fenced code blocks by looking for a language-* class attribute.
     final langClass = element.attributes['class'];
     final language = langClass?.replaceFirst('language-', '');
     final code = element.textContent.trimRight();
 
-    // If there is no language class and the code has no newlines, it is
-    // inline code -- let flutter_markdown handle it normally.
     if (langClass == null && !code.contains('\n')) return null;
 
+    final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF1E1E2E) : const Color(0xFF282C34);
-    final headerColor = isDark
-        ? const Color(0xFF16162A)
-        : const Color(0xFF21252B);
 
-    // Attempt syntax highlighting.
     final result = (language != null && language.isNotEmpty)
         ? highlight.parse(code, language: language)
         : highlight.parse(code, autoDetection: true);
@@ -268,16 +418,16 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: chatExt.codeBg,
         borderRadius: BorderRadius.circular(12),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // -- Header bar --
+          // Header bar
           Container(
-            color: headerColor,
+            color: chatExt.codeHeaderBg,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             child: Row(
               children: [
@@ -294,7 +444,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
               ],
             ),
           ),
-          // -- Code body --
+          // Code body
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.all(14),
@@ -401,7 +551,7 @@ class _CopyButtonState extends State<_CopyButton> {
 }
 
 // ---------------------------------------------------------------------------
-// Streaming dots indicator
+// Streaming dots indicator (spring animation)
 // ---------------------------------------------------------------------------
 
 class _StreamingDots extends StatefulWidget {
@@ -441,17 +591,27 @@ class _StreamingDotsState extends State<_StreamingDots>
           children: List.generate(3, (i) {
             final delay = i * 0.2;
             final t = ((_ctrl.value - delay) % 1.0).clamp(0.0, 1.0);
+            // Spring-like bounce: starts small, grows, shrinks
+            final scale =
+                0.6 +
+                0.4 *
+                    Curves.easeOutBack.transform(
+                      (1.0 - (t - 0.5).abs() * 2).clamp(0.0, 1.0),
+                    );
             final opacity = (1.0 - (t - 0.5).abs() * 2).clamp(0.3, 1.0);
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),
               child: Opacity(
                 opacity: opacity,
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: widget.color,
-                    shape: BoxShape.circle,
+                child: Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: widget.color,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
               ),
