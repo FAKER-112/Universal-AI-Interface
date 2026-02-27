@@ -31,6 +31,7 @@ abstract class ProviderConfig with _$ProviderConfig {
     @Default(0.0) double presencePenalty,
     @Default(30) int timeout,
     @Default(3) int maxRetries,
+    @Default(true) bool isPinned,
   }) = _ProviderConfig;
 
   factory ProviderConfig.fromJson(Map<String, dynamic> json) =>

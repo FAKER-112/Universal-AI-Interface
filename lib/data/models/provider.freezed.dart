@@ -36,6 +36,7 @@ mixin _$ProviderConfig {
   double get presencePenalty => throw _privateConstructorUsedError;
   int get timeout => throw _privateConstructorUsedError;
   int get maxRetries => throw _privateConstructorUsedError;
+  bool get isPinned => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -64,7 +65,8 @@ abstract class $ProviderConfigCopyWith<$Res> {
       double frequencyPenalty,
       double presencePenalty,
       int timeout,
-      int maxRetries});
+      int maxRetries,
+      bool isPinned});
 }
 
 /// @nodoc
@@ -95,6 +97,7 @@ class _$ProviderConfigCopyWithImpl<$Res, $Val extends ProviderConfig>
     Object? presencePenalty = null,
     Object? timeout = null,
     Object? maxRetries = null,
+    Object? isPinned = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -157,6 +160,10 @@ class _$ProviderConfigCopyWithImpl<$Res, $Val extends ProviderConfig>
           ? _value.maxRetries
           : maxRetries // ignore: cast_nullable_to_non_nullable
               as int,
+      isPinned: null == isPinned
+          ? _value.isPinned
+          : isPinned // ignore: cast_nullable_to_non_nullable
+              as bool,
     ) as $Val);
   }
 }
@@ -184,7 +191,8 @@ abstract class _$$ProviderConfigImplCopyWith<$Res>
       double frequencyPenalty,
       double presencePenalty,
       int timeout,
-      int maxRetries});
+      int maxRetries,
+      bool isPinned});
 }
 
 /// @nodoc
@@ -213,6 +221,7 @@ class __$$ProviderConfigImplCopyWithImpl<$Res>
     Object? presencePenalty = null,
     Object? timeout = null,
     Object? maxRetries = null,
+    Object? isPinned = null,
   }) {
     return _then(_$ProviderConfigImpl(
       id: null == id
@@ -275,6 +284,10 @@ class __$$ProviderConfigImplCopyWithImpl<$Res>
           ? _value.maxRetries
           : maxRetries // ignore: cast_nullable_to_non_nullable
               as int,
+      isPinned: null == isPinned
+          ? _value.isPinned
+          : isPinned // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 }
@@ -297,7 +310,8 @@ class _$ProviderConfigImpl implements _ProviderConfig {
       this.frequencyPenalty = 0.0,
       this.presencePenalty = 0.0,
       this.timeout = 30,
-      this.maxRetries = 3});
+      this.maxRetries = 3,
+      this.isPinned = true});
 
   factory _$ProviderConfigImpl.fromJson(Map<String, dynamic> json) =>
       _$$ProviderConfigImplFromJson(json);
@@ -343,10 +357,13 @@ class _$ProviderConfigImpl implements _ProviderConfig {
   @override
   @JsonKey()
   final int maxRetries;
+  @override
+  @JsonKey()
+  final bool isPinned;
 
   @override
   String toString() {
-    return 'ProviderConfig(id: $id, name: $name, type: $type, baseUrl: $baseUrl, apiKey: $apiKey, modelName: $modelName, description: $description, organization: $organization, temperature: $temperature, maxTokens: $maxTokens, topP: $topP, frequencyPenalty: $frequencyPenalty, presencePenalty: $presencePenalty, timeout: $timeout, maxRetries: $maxRetries)';
+    return 'ProviderConfig(id: $id, name: $name, type: $type, baseUrl: $baseUrl, apiKey: $apiKey, modelName: $modelName, description: $description, organization: $organization, temperature: $temperature, maxTokens: $maxTokens, topP: $topP, frequencyPenalty: $frequencyPenalty, presencePenalty: $presencePenalty, timeout: $timeout, maxRetries: $maxRetries, isPinned: $isPinned)';
   }
 
   @override
@@ -376,7 +393,9 @@ class _$ProviderConfigImpl implements _ProviderConfig {
                 other.presencePenalty == presencePenalty) &&
             (identical(other.timeout, timeout) || other.timeout == timeout) &&
             (identical(other.maxRetries, maxRetries) ||
-                other.maxRetries == maxRetries));
+                other.maxRetries == maxRetries) &&
+            (identical(other.isPinned, isPinned) ||
+                other.isPinned == isPinned));
   }
 
   @JsonKey(ignore: true)
@@ -397,7 +416,8 @@ class _$ProviderConfigImpl implements _ProviderConfig {
       frequencyPenalty,
       presencePenalty,
       timeout,
-      maxRetries);
+      maxRetries,
+      isPinned);
 
   @JsonKey(ignore: true)
   @override
@@ -430,7 +450,8 @@ abstract class _ProviderConfig implements ProviderConfig {
       final double frequencyPenalty,
       final double presencePenalty,
       final int timeout,
-      final int maxRetries}) = _$ProviderConfigImpl;
+      final int maxRetries,
+      final bool isPinned}) = _$ProviderConfigImpl;
 
   factory _ProviderConfig.fromJson(Map<String, dynamic> json) =
       _$ProviderConfigImpl.fromJson;
@@ -465,6 +486,8 @@ abstract class _ProviderConfig implements ProviderConfig {
   int get timeout;
   @override
   int get maxRetries;
+  @override
+  bool get isPinned;
   @override
   @JsonKey(ignore: true)
   _$$ProviderConfigImplCopyWith<_$ProviderConfigImpl> get copyWith =>

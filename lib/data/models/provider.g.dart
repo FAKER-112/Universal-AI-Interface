@@ -23,6 +23,7 @@ _$ProviderConfigImpl _$$ProviderConfigImplFromJson(Map<String, dynamic> json) =>
       presencePenalty: (json['presencePenalty'] as num?)?.toDouble() ?? 0.0,
       timeout: (json['timeout'] as num?)?.toInt() ?? 30,
       maxRetries: (json['maxRetries'] as num?)?.toInt() ?? 3,
+      isPinned: json['isPinned'] as bool? ?? true,
     );
 
 Map<String, dynamic> _$$ProviderConfigImplToJson(
@@ -43,6 +44,7 @@ Map<String, dynamic> _$$ProviderConfigImplToJson(
       'presencePenalty': instance.presencePenalty,
       'timeout': instance.timeout,
       'maxRetries': instance.maxRetries,
+      'isPinned': instance.isPinned,
     };
 
 const _$ProviderTypeEnumMap = {

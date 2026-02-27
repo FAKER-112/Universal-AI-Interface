@@ -1,18 +1,36 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:isar/isar.dart';
 
+import 'package:ai_client_service/data/datasources/chat_local_datasource.dart';
 import 'package:ai_client_service/data/models/chat_message.dart';
+import 'package:ai_client_service/data/models/isar_chat_session.dart';
+import 'package:ai_client_service/data/models/isar_chat_message.dart';
+import 'package:ai_client_service/data/models/isar_provider_config.dart';
 import 'package:ai_client_service/data/repositories/chat_repository.dart';
 import 'package:ai_client_service/presentation/providers/chat_provider.dart';
 
 void main() {
   late ChatNotifier notifier;
+  late Isar isar;
+  late LocalDataSource localDb;
 
-  setUp(() {
-    notifier = ChatNotifier(MockAIRepository());
+  setUpAll(() async {
+    await Isar.initializeIsarCore(download: true);
   });
 
-  tearDown(() {
+  setUp(() async {
+    isar = await Isar.open(
+      [IsarChatSessionSchema, IsarChatMessageSchema, IsarProviderConfigSchema],
+      directory: '',
+      name: 'test_${DateTime.now().millisecondsSinceEpoch}',
+    );
+    localDb = LocalDataSource(isar);
+    notifier = ChatNotifier(MockAIRepository(), localDb);
+  });
+
+  tearDown(() async {
     notifier.dispose();
+    await isar.close(deleteFromDisk: true);
   });
 
   group('ChatNotifier', () {
@@ -21,8 +39,8 @@ void main() {
       expect(notifier.state.isStreaming, isFalse);
     });
 
-    test('loadHistory resets state to empty', () {
-      notifier.loadHistory();
+    test('newChat resets state to empty', () {
+      notifier.newChat();
 
       expect(notifier.state.messages, isEmpty);
       expect(notifier.state.isStreaming, isFalse);

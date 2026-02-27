@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:ai_client_service/data/datasources/chat_local_datasource.dart';
 import 'package:ai_client_service/data/models/chat_message.dart';
+import 'package:ai_client_service/data/models/chat_session.dart';
 import 'package:ai_client_service/data/models/provider.dart';
 import 'package:ai_client_service/data/repositories/chat_repository.dart';
 import 'package:ai_client_service/domain/repositories/ai_repository.dart';
+import 'package:ai_client_service/main.dart';
 import 'package:ai_client_service/presentation/providers/provider_config_provider.dart';
 import 'package:ai_client_service/services/provider_factory.dart';
 
@@ -32,7 +35,9 @@ final aiRepositoryProvider = Provider<AIRepository>((ref) {
 final chatNotifierProvider = StateNotifierProvider<ChatNotifier, ChatState>((
   ref,
 ) {
-  return ChatNotifier(ref.watch(aiRepositoryProvider));
+  final repository = ref.watch(aiRepositoryProvider);
+  final localDataSource = ref.watch(localDataSourceProvider);
+  return ChatNotifier(repository, localDataSource);
 });
 
 // ---------------------------------------------------------------------------
@@ -45,12 +50,16 @@ class ChatSessionData {
     required this.id,
     required this.title,
     required this.createdAt,
+    this.providerId = '',
+    this.modelName = '',
     List<ChatMessage>? messages,
   }) : messages = messages ?? [];
 
   final String id;
   String title;
   final DateTime createdAt;
+  final String providerId;
+  final String modelName;
   final List<ChatMessage> messages;
 
   String get timeLabel {
@@ -74,12 +83,14 @@ class ChatState {
     this.isStreaming = false,
     this.sessions = const {},
     this.activeSessionId = 'new',
+    this.isLoading = true,
   });
 
   final List<ChatMessage> messages;
   final bool isStreaming;
   final Map<String, ChatSessionData> sessions;
   final String activeSessionId;
+  final bool isLoading;
 
   /// Sessions sorted newest-first.
   List<ChatSessionData> get sortedSessions {
@@ -93,12 +104,14 @@ class ChatState {
     bool? isStreaming,
     Map<String, ChatSessionData>? sessions,
     String? activeSessionId,
+    bool? isLoading,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
       isStreaming: isStreaming ?? this.isStreaming,
       sessions: sessions ?? this.sessions,
       activeSessionId: activeSessionId ?? this.activeSessionId,
+      isLoading: isLoading ?? this.isLoading,
     );
   }
 }
@@ -108,11 +121,31 @@ class ChatState {
 // ---------------------------------------------------------------------------
 
 class ChatNotifier extends StateNotifier<ChatState> {
-  ChatNotifier(this._repository) : super(const ChatState());
+  ChatNotifier(this._repository, this._localDb) : super(const ChatState()) {
+    _loadSessionsFromDb();
+  }
 
   final AIRepository _repository;
+  final LocalDataSource _localDb;
   final _uuid = const Uuid();
   StreamSubscription<String>? _activeSubscription;
+
+  /// Loads all saved sessions from the local database.
+  Future<void> _loadSessionsFromDb() async {
+    final dbSessions = await _localDb.getAllSessions();
+    final sessionsMap = <String, ChatSessionData>{};
+
+    for (final s in dbSessions) {
+      sessionsMap[s.id] = ChatSessionData(
+        id: s.id,
+        title: s.title,
+        createdAt: s.createdAt,
+        providerId: s.providerId,
+      );
+    }
+
+    state = state.copyWith(sessions: sessionsMap, isLoading: false);
+  }
 
   /// Creates a new empty chat session.
   void newChat() {
@@ -125,21 +158,30 @@ class ChatNotifier extends StateNotifier<ChatState> {
     );
   }
 
-  /// Switches to an existing session by [id].
-  void switchSession(String id) {
+  /// Switches to an existing session by [id], loading messages from DB.
+  Future<void> switchSession(String id) async {
     final session = state.sessions[id];
     if (session == null) return;
     _activeSubscription?.cancel();
     _activeSubscription = null;
+
+    // Load messages from Isar.
+    final messages = await _localDb.getMessages(id);
+    session.messages
+      ..clear()
+      ..addAll(messages);
+
     state = state.copyWith(
-      messages: List.of(session.messages),
+      messages: List.of(messages),
       isStreaming: false,
       activeSessionId: id,
     );
   }
 
-  /// Deletes a session by [id].
-  void deleteSession(String id) {
+  /// Deletes a session and its messages from both memory and Isar.
+  Future<void> deleteSession(String id) async {
+    await _localDb.deleteSession(id);
+
     final updated = Map<String, ChatSessionData>.from(state.sessions);
     updated.remove(id);
     // If deleting the active session, switch to new chat
@@ -155,11 +197,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
-  /// Load prior messages. Clears current messages for a fresh start.
-  void loadHistory() {
-    newChat();
-  }
-
   /// Sends a user [prompt], appends the user message to state, then streams
   /// the assistant response token-by-token.
   Future<void> sendMessage(String prompt) async {
@@ -172,10 +209,21 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final title = prompt.length > 40
           ? '${prompt.substring(0, 40)}...'
           : prompt;
-      sessions[sessionId] = ChatSessionData(
+      final sessionData = ChatSessionData(
         id: sessionId,
         title: title,
         createdAt: DateTime.now(),
+      );
+      sessions[sessionId] = sessionData;
+
+      // Persist the new session to Isar.
+      await _localDb.saveSession(
+        ChatSession(
+          id: sessionId,
+          title: title,
+          providerId: '',
+          createdAt: sessionData.createdAt,
+        ),
       );
     }
 
@@ -204,6 +252,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
       sessions: sessions,
       activeSessionId: sessionId,
     );
+
+    // Persist user message to Isar.
+    unawaited(_localDb.saveMessage(sessionId, userMessage));
 
     // 3. Prepare a placeholder assistant message.
     final assistantId = _uuid.v4();
@@ -241,6 +292,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
               _syncSessionMessages();
               state = state.copyWith(isStreaming: false);
               _activeSubscription = null;
+
+              // Persist final assistant message to Isar.
+              _persistAssistantMessage(assistantId, buffer.toString());
             },
             onError: (Object error) {
               final errorMsg = error is Exception
@@ -256,6 +310,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
               _syncSessionMessages();
               state = state.copyWith(isStreaming: false);
               _activeSubscription = null;
+
+              // Persist error message to Isar.
+              _persistAssistantMessage(
+                assistantId,
+                buffer.isEmpty ? 'Error: $errorMsg' : buffer.toString(),
+                errorMsg: errorMsg,
+              );
             },
           );
     } catch (e) {
@@ -312,5 +373,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
     session.messages
       ..clear()
       ..addAll(state.messages);
+  }
+
+  /// Persists the final assistant message to Isar.
+  void _persistAssistantMessage(
+    String messageId,
+    String content, {
+    String? errorMsg,
+  }) {
+    final sid = state.activeSessionId;
+    if (sid == 'new') return;
+
+    final msg = ChatMessage(
+      id: messageId,
+      role: const MessageRole.assistant(),
+      content: content,
+      timestamp: DateTime.now(),
+      status: errorMsg != null
+          ? MessageStatus.error(errorMsg)
+          : const MessageStatus.sent(),
+    );
+
+    unawaited(_localDb.saveMessage(sid, msg));
   }
 }

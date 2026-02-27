@@ -10,6 +10,7 @@ import 'package:ai_client_service/presentation/providers/saved_configs_provider.
 import 'package:ai_client_service/presentation/widgets/message_list.dart';
 import 'package:ai_client_service/presentation/widgets/input_area.dart';
 import 'package:ai_client_service/presentation/widgets/model_config_panel.dart';
+import 'package:ai_client_service/presentation/widgets/model_selector.dart';
 
 class ChatScreen extends ConsumerWidget {
   const ChatScreen({super.key, required this.chatId});
@@ -50,141 +51,18 @@ class ChatScreen extends ConsumerWidget {
                   ),
 
                 // Model selector dropdown
-                PopupMenuButton<String>(
-                  tooltip: 'Select model configuration',
-                  offset: const Offset(0, 42),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  itemBuilder: (ctx) => [
-                    // Saved configs
-                    ...savedConfigs.map(
-                      (config) => PopupMenuItem<String>(
-                        value: 'select_${config.id}',
-                        child: Row(
-                          children: [
-                            Icon(
-                              config.type == ProviderType.openai
-                                  ? Icons.cloud_outlined
-                                  : Icons.computer,
-                              size: 16,
-                              color: config.id == providerConfig.id
-                                  ? cs.primary
-                                  : cs.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    config.name,
-                                    style: tt.bodySmall?.copyWith(
-                                      fontWeight: config.id == providerConfig.id
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                      color: config.id == providerConfig.id
-                                          ? cs.primary
-                                          : null,
-                                    ),
-                                  ),
-                                  Text(
-                                    config.modelName,
-                                    style: tt.labelSmall?.copyWith(
-                                      color: cs.onSurfaceVariant.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (config.id == providerConfig.id)
-                              Icon(Icons.check, size: 16, color: cs.primary),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const PopupMenuDivider(),
-
-                    // Edit current
-                    PopupMenuItem<String>(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.tune,
-                            size: 16,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text('Edit current', style: tt.bodySmall),
-                        ],
-                      ),
-                    ),
-
-                    // Save current as new preset
-                    PopupMenuItem<String>(
-                      value: 'save_as',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.save_outlined,
-                            size: 16,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text('Save as preset', style: tt.bodySmall),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      showModelConfigPanel(context);
-                    } else if (value == 'save_as') {
-                      _saveAsPreset(context, ref, providerConfig);
-                    } else if (value.startsWith('select_')) {
-                      final id = value.substring(7);
-                      final config = savedConfigs.firstWhere((c) => c.id == id);
-                      ref.read(providerConfigProvider.notifier).update(config);
-                    }
+                ModelSelector(
+                  currentConfig: providerConfig,
+                  allConfigs: savedConfigs,
+                  onModelChanged: (config) {
+                    ref.read(providerConfigProvider.notifier).update(config);
                   },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: cs.outlineVariant.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.memory, size: 16, color: cs.primary),
-                        const SizedBox(width: 6),
-                        Text(
-                          providerConfig.modelName,
-                          style: tt.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.keyboard_arrow_down,
-                          size: 16,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                        ),
-                      ],
-                    ),
-                  ),
+                  onTogglePin: (id) {
+                    ref.read(savedConfigsProvider.notifier).togglePin(id);
+                  },
+                  onEditCurrent: () => showModelConfigPanel(context),
+                  onSaveAsPreset: () =>
+                      _saveAsPreset(context, ref, providerConfig),
                 ),
 
                 const SizedBox(width: 8),
