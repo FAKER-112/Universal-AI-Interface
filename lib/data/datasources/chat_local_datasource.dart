@@ -74,6 +74,15 @@ class LocalDataSource {
     });
   }
 
+  /// Deletes specific messages by their IDs.
+  Future<void> deleteMessageIds(List<String> messageIds) async {
+    await _isar.writeTxn(() async {
+      for (final id in messageIds) {
+        await _isar.isarChatMessages.where().messageIdEqualTo(id).deleteAll();
+      }
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Messages
   // ---------------------------------------------------------------------------

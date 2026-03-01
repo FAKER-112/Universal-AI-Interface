@@ -83,8 +83,8 @@ class ChatThemeExtension extends ThemeExtension<ChatThemeExtension> {
     userBubbleBg: Color(0xFFE8F0FE),
     assistantCardBg: Color(0xFFFFFFFF),
     assistantCardBorder: Color(0xFFE8E8E8),
-    codeBg: Color(0xFF282C34),
-    codeHeaderBg: Color(0xFF21252B),
+    codeBg: Color(0xFFF5F5F5),
+    codeHeaderBg: Color(0xFFEBEBEB),
     subtleBorder: Color(0xFFEAEAEA),
     inputBg: Color(0xFFF0F0F0),
   );

@@ -179,6 +179,87 @@ class ChatNotifier extends StateNotifier<ChatState> {
     );
   }
 
+  /// Regenerates the response for a given assistant message, removing it
+  /// and any subsequent messages, and resending the preceding user prompt.
+  Future<void> regenerateMessage(
+    String assistantMessageId,
+    ProviderConfig config,
+  ) async {
+    final activeSessionId = state.activeSessionId;
+    final session = state.sessions[activeSessionId];
+    if (session == null) return;
+
+    final messages = session.messages;
+    final index = messages.indexWhere((m) => m.id == assistantMessageId);
+    if (index <= 0) return;
+
+    final userMessage = messages[index - 1];
+    if (userMessage.role is! MessageRoleUser) return;
+
+    _activeSubscription?.cancel();
+    _activeSubscription = null;
+
+    // Prune everything from the user message onwards (sendMessage recreates it)
+    final newMessagesPruned = messages.sublist(0, index - 1);
+    final removedIds = messages.sublist(index - 1).map((m) => m.id).toList();
+
+    session.messages.clear();
+    session.messages.addAll(newMessagesPruned);
+
+    state = state.copyWith(
+      messages: List.from(newMessagesPruned),
+      isStreaming: false,
+    );
+
+    _localDb.deleteMessageIds(removedIds);
+
+    // Resend
+    await sendMessage(
+      userMessage.content,
+      config,
+      sessionId: activeSessionId,
+      attachments: userMessage.attachments,
+    );
+  }
+
+  /// Prepares an edit by populating the input area and pruning the history
+  /// from the selected user message onwards.
+  Future<void> editMessage(
+    String userMessageId,
+    void Function(String, List<ChatAttachment>) onSetInput,
+  ) async {
+    final activeSessionId = state.activeSessionId;
+    final session = state.sessions[activeSessionId];
+    if (session == null) return;
+
+    final messages = session.messages;
+    final index = messages.indexWhere((m) => m.id == userMessageId);
+    if (index < 0) return;
+
+    final userMessage = messages[index];
+    if (userMessage.role is! MessageRoleUser) return;
+
+    _activeSubscription?.cancel();
+    _activeSubscription = null;
+
+    // Pass content to UI
+    onSetInput(userMessage.content, userMessage.attachments);
+
+    // Prune everything from this user message onwards
+    final newMessages = messages.sublist(0, index);
+    final removedIds = messages.sublist(index).map((m) => m.id).toList();
+
+    session.messages.clear();
+    session.messages.addAll(newMessages);
+
+    state = state.copyWith(
+      messages: List.from(newMessages),
+      isStreaming: false,
+    );
+
+    _localDb.deleteMessageIds(removedIds);
+  }
+
   /// Deletes a session and its messages from both memory and Isar.
   Future<void> deleteSession(String id) async {
     await _localDb.deleteSession(id);

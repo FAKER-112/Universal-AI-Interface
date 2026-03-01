@@ -33,7 +33,6 @@ class InputAreaWidgetState extends State<InputAreaWidget> {
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
   bool _focused = false;
-  bool _showAdvanced = false;
 
   final List<ChatAttachment> _attachments = [];
 
@@ -229,17 +228,18 @@ class InputAreaWidgetState extends State<InputAreaWidget> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             // Attachment button
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                left: 6,
-                                bottom: 6,
-                              ),
+                            Container(
+                              margin: const EdgeInsets.only(left: 4, bottom: 4),
+                              width: 40,
+                              height: 40,
                               child: IconButton(
+                                padding: EdgeInsets.zero,
                                 onPressed: widget.isStreaming
                                     ? null
                                     : _pickFiles,
                                 icon: const Icon(
                                   Icons.add_circle_outline_rounded,
+                                  size: 24,
                                 ),
                                 color: cs.onSurfaceVariant,
                                 tooltip: 'Attach files',
@@ -334,75 +334,6 @@ class InputAreaWidgetState extends State<InputAreaWidget> {
                           ],
                         ),
                       ),
-
-                      // -- Bottom toolbar: attach icons + advanced --
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
-                        child: Row(
-                          children: [
-                            // Attach file
-                            _ToolbarIcon(
-                              icon: Icons.add_circle_outline,
-                              tooltip: 'Attach file',
-                              onPressed: () {},
-                              colorScheme: cs,
-                            ),
-                            // Image upload
-                            _ToolbarIcon(
-                              icon: Icons.image_outlined,
-                              tooltip: 'Upload image',
-                              onPressed: () {},
-                              colorScheme: cs,
-                            ),
-
-                            const Spacer(),
-
-                            // Advanced toggle
-                            _ToolbarIcon(
-                              icon: Icons.tune,
-                              tooltip: 'Advanced options',
-                              active: _showAdvanced,
-                              onPressed: () => setState(
-                                () => _showAdvanced = !_showAdvanced,
-                              ),
-                              colorScheme: cs,
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // -- Advanced options row --
-                      AnimatedCrossFade(
-                        duration: const Duration(milliseconds: 200),
-                        crossFadeState: _showAdvanced
-                            ? CrossFadeState.showFirst
-                            : CrossFadeState.showSecond,
-                        firstChild: Container(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                          child: Row(
-                            children: [
-                              _OptionChip(
-                                label: 'Model',
-                                icon: Icons.memory,
-                                colorScheme: cs,
-                              ),
-                              const SizedBox(width: 8),
-                              _OptionChip(
-                                label: 'Web',
-                                icon: Icons.language,
-                                colorScheme: cs,
-                              ),
-                              const SizedBox(width: 8),
-                              _OptionChip(
-                                label: 'Tools',
-                                icon: Icons.build_outlined,
-                                colorScheme: cs,
-                              ),
-                            ],
-                          ),
-                        ),
-                        secondChild: const SizedBox.shrink(),
-                      ),
                     ],
                   ),
                 ),
@@ -421,132 +352,6 @@ class InputAreaWidgetState extends State<InputAreaWidget> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Small toolbar icon button
-// ---------------------------------------------------------------------------
-
-class _ToolbarIcon extends StatefulWidget {
-  const _ToolbarIcon({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-    required this.colorScheme,
-    this.active = false,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-  final ColorScheme colorScheme;
-  final bool active;
-
-  @override
-  State<_ToolbarIcon> createState() => _ToolbarIconState();
-}
-
-class _ToolbarIconState extends State<_ToolbarIcon> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.colorScheme;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: Tooltip(
-        message: widget.tooltip,
-        child: InkWell(
-          onTap: widget.onPressed,
-          borderRadius: BorderRadius.circular(8),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: _hovered || widget.active
-                  ? cs.onSurface.withValues(alpha: 0.06)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              widget.icon,
-              size: 20,
-              color: widget.active
-                  ? cs.primary
-                  : cs.onSurfaceVariant.withValues(alpha: 0.55),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Option chip (for advanced row)
-// ---------------------------------------------------------------------------
-
-class _OptionChip extends StatefulWidget {
-  const _OptionChip({
-    required this.label,
-    required this.icon,
-    required this.colorScheme,
-  });
-
-  final String label;
-  final IconData icon;
-  final ColorScheme colorScheme;
-
-  @override
-  State<_OptionChip> createState() => _OptionChipState();
-}
-
-class _OptionChipState extends State<_OptionChip> {
-  bool _active = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.colorScheme;
-    return InkWell(
-      onTap: () => setState(() => _active = !_active),
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: _active
-              ? cs.primary.withValues(alpha: 0.12)
-              : cs.onSurface.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: _active
-                ? cs.primary.withValues(alpha: 0.3)
-                : cs.outlineVariant.withValues(alpha: 0.2),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              widget.icon,
-              size: 14,
-              color: _active ? cs.primary : cs.onSurfaceVariant,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              widget.label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: _active ? FontWeight.w600 : FontWeight.w400,
-                color: _active ? cs.primary : cs.onSurfaceVariant,
-              ),
-            ),
-          ],
         ),
       ),
     );

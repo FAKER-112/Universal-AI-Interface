@@ -10,10 +10,14 @@ class MessageListWidget extends StatefulWidget {
     super.key,
     required this.messages,
     this.isStreaming = false,
+    this.onEdit,
+    this.onRegenerate,
   });
 
   final List<ChatMessage> messages;
   final bool isStreaming;
+  final void Function(ChatMessage)? onEdit;
+  final void Function(ChatMessage)? onRegenerate;
 
   @override
   State<MessageListWidget> createState() => _MessageListWidgetState();
@@ -103,6 +107,8 @@ class _MessageListWidgetState extends State<MessageListWidget> {
                   child: MessageBubbleWidget(
                     message: msg,
                     isStreaming: isLast && widget.isStreaming,
+                    onEdit: widget.onEdit,
+                    onRegenerate: widget.onRegenerate,
                   ),
                 ),
               ),

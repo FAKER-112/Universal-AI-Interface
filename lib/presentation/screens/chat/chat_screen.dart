@@ -12,13 +12,20 @@ import 'package:ai_client_service/presentation/widgets/input_area.dart';
 import 'package:ai_client_service/presentation/widgets/model_config_panel.dart';
 import 'package:ai_client_service/presentation/widgets/model_selector.dart';
 
-class ChatScreen extends ConsumerWidget {
+class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key, required this.chatId});
 
   final String chatId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends ConsumerState<ChatScreen> {
+  final _inputKey = GlobalKey<InputAreaWidgetState>();
+
+  @override
+  Widget build(BuildContext context) {
     final chatState = ref.watch(chatNotifierProvider);
     final providerConfig = ref.watch(providerConfigProvider);
     final savedConfigs = ref.watch(savedConfigsProvider);
@@ -61,8 +68,7 @@ class ChatScreen extends ConsumerWidget {
                     ref.read(savedConfigsProvider.notifier).togglePin(id);
                   },
                   onEditCurrent: () => showModelConfigPanel(context),
-                  onSaveAsPreset: () =>
-                      _saveAsPreset(context, ref, providerConfig),
+                  onSaveAsPreset: () => _saveAsPreset(context, providerConfig),
                 ),
 
                 const SizedBox(width: 8),
@@ -98,17 +104,23 @@ class ChatScreen extends ConsumerWidget {
                   ),
                 ),
 
-                const SizedBox(width: 12),
+                const Spacer(),
 
-                // Chat title
-                Expanded(
-                  child: Text(
-                    chatState.messages.isEmpty ? 'New chat' : 'Chat',
-                    style: tt.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant,
+                // New chat button
+                ElevatedButton.icon(
+                  onPressed: () {
+                    ref.read(chatNotifierProvider.notifier).newChat();
+                  },
+                  icon: const Icon(Icons.edit_square, size: 18),
+                  label: const Text('New chat'),
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    backgroundColor: cs.primaryContainer.withValues(alpha: 0.5),
+                    foregroundColor: cs.onPrimaryContainer,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
 
@@ -133,11 +145,25 @@ class ChatScreen extends ConsumerWidget {
               : MessageListWidget(
                   messages: chatState.messages,
                   isStreaming: chatState.isStreaming,
+                  onEdit: (msg) {
+                    ref.read(chatNotifierProvider.notifier).editMessage(
+                      msg.id,
+                      (text, attachments) {
+                        _inputKey.currentState?.setInput(text, attachments);
+                      },
+                    );
+                  },
+                  onRegenerate: (msg) {
+                    ref
+                        .read(chatNotifierProvider.notifier)
+                        .regenerateMessage(msg.id, providerConfig);
+                  },
                 ),
         ),
 
         // -- Input --
         InputAreaWidget(
+          key: _inputKey,
           isStreaming: chatState.isStreaming,
           onSend: (text, attachments) {
             final activeChatId = ref.read(chatNotifierProvider).activeSessionId;
@@ -159,11 +185,7 @@ class ChatScreen extends ConsumerWidget {
     );
   }
 
-  void _saveAsPreset(
-    BuildContext context,
-    WidgetRef ref,
-    ProviderConfig config,
-  ) {
+  void _saveAsPreset(BuildContext context, ProviderConfig config) {
     final nameCtrl = TextEditingController(text: config.name);
     showDialog(
       context: context,

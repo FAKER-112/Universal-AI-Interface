@@ -21,10 +21,14 @@ class MessageBubbleWidget extends StatefulWidget {
     super.key,
     required this.message,
     this.isStreaming = false,
+    this.onEdit,
+    this.onRegenerate,
   });
 
   final ChatMessage message;
   final bool isStreaming;
+  final void Function(ChatMessage)? onEdit;
+  final void Function(ChatMessage)? onRegenerate;
 
   @override
   State<MessageBubbleWidget> createState() => _MessageBubbleWidgetState();
@@ -97,15 +101,21 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
                             width: 150,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: cs.surface.withValues(alpha: 0.5),
+                              color:
+                                  chatExt.userBubbleBg.computeLuminance() > 0.5
+                                  ? Colors.black.withValues(alpha: 0.05)
+                                  : Colors.white.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: cs.outlineVariant),
                             ),
                             child: Row(
                               children: [
                                 Icon(
                                   Icons.insert_drive_file,
-                                  color: cs.primary,
+                                  color:
+                                      chatExt.userBubbleBg.computeLuminance() >
+                                          0.5
+                                      ? Colors.black87
+                                      : Colors.white,
                                   size: 24,
                                 ),
                                 const SizedBox(width: 8),
@@ -113,7 +123,12 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
                                   child: Text(
                                     att.name,
                                     style: tt.bodySmall?.copyWith(
-                                      color: cs.onSurface,
+                                      color:
+                                          chatExt.userBubbleBg
+                                                  .computeLuminance() >
+                                              0.5
+                                          ? Colors.black87
+                                          : Colors.white,
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
@@ -135,6 +150,16 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
                     ),
                   ),
               ],
+            ),
+          ),
+          // Action buttons row for user messages
+          Align(
+            alignment: Alignment.centerRight,
+            child: _MessageActions(
+              message: widget.message,
+              hovered: _hovered,
+              onEdit: widget.onEdit,
+              onRegenerate: widget.onRegenerate,
             ),
           ),
           // Hover timestamp
@@ -208,7 +233,9 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
                   ),
                   child: widget.message.content.isEmpty && widget.isStreaming
                       ? _buildSkeletonLoader(context)
-                      : _buildMarkdown(context),
+                      : (widget.message.content.isEmpty && !widget.isStreaming
+                            ? _buildErrorOrEmptyState(context)
+                            : _buildMarkdown(context)),
                 ),
               ),
             ],
@@ -222,7 +249,12 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
             ),
 
           // Action buttons row (shown on hover or always on mobile)
-          _MessageActions(message: widget.message, hovered: _hovered),
+          _MessageActions(
+            message: widget.message,
+            hovered: _hovered,
+            onEdit: widget.onEdit,
+            onRegenerate: widget.onRegenerate,
+          ),
 
           // Hover timestamp
           AnimatedOpacity(
@@ -237,6 +269,29 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
                   fontSize: 10,
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---- Empty / Error state ----
+  Widget _buildErrorOrEmptyState(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final errorMessage = widget.message.status.mapOrNull(
+      error: (e) => e.errorMessage,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: cs.error, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              errorMessage ?? 'No response was returned.',
+              style: TextStyle(color: cs.error),
             ),
           ),
         ],
@@ -393,9 +448,16 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
 final _tts = FlutterTts();
 
 class _MessageActions extends StatefulWidget {
-  const _MessageActions({required this.message, required this.hovered});
+  const _MessageActions({
+    required this.message,
+    required this.hovered,
+    this.onEdit,
+    this.onRegenerate,
+  });
   final ChatMessage message;
   final bool hovered;
+  final void Function(ChatMessage)? onEdit;
+  final void Function(ChatMessage)? onRegenerate;
 
   @override
   State<_MessageActions> createState() => _MessageActionsState();
@@ -403,6 +465,8 @@ class _MessageActions extends StatefulWidget {
 
 class _MessageActionsState extends State<_MessageActions> {
   bool _isSpeaking = false;
+  bool _thumbUp = false;
+  bool _thumbDown = false;
 
   /// Strips basic markdown formatting for cleaner TTS output.
   String _stripMarkdown(String text) {
@@ -443,11 +507,15 @@ class _MessageActionsState extends State<_MessageActions> {
     // Always show on mobile (no hover), show on hover for desktop
     final isMobile = MediaQuery.sizeOf(context).width < 600;
 
+    final isUser = widget.message.role is MessageRoleUser;
+
     return AnimatedOpacity(
       opacity: (widget.hovered || isMobile) ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 200),
       child: Padding(
-        padding: const EdgeInsets.only(left: 42, top: 6),
+        padding: isUser
+            ? const EdgeInsets.only(right: 8, top: 4)
+            : const EdgeInsets.only(left: 42, top: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -468,30 +536,50 @@ class _MessageActionsState extends State<_MessageActions> {
                 );
               },
             ),
-            _ActionIconButton(
-              icon: Icons.refresh_rounded,
-              tooltip: 'Regenerate',
-              onPressed: () {
-                // Placeholder for regeneration
-              },
-            ),
-            _ActionIconButton(
-              icon: _isSpeaking
-                  ? Icons.stop_circle_outlined
-                  : Icons.volume_up_outlined,
-              tooltip: _isSpeaking ? 'Stop reading' : 'Read aloud',
-              onPressed: _toggleReadAloud,
-            ),
-            _ActionIconButton(
-              icon: Icons.thumb_up_outlined,
-              tooltip: 'Good response',
-              onPressed: () {},
-            ),
-            _ActionIconButton(
-              icon: Icons.thumb_down_outlined,
-              tooltip: 'Bad response',
-              onPressed: () {},
-            ),
+            if (isUser)
+              _ActionIconButton(
+                icon: Icons.edit_outlined,
+                tooltip: 'Edit',
+                onPressed: () {
+                  widget.onEdit?.call(widget.message);
+                },
+              ),
+            if (!isUser) ...[
+              _ActionIconButton(
+                icon: Icons.refresh_rounded,
+                tooltip: 'Regenerate',
+                onPressed: () {
+                  widget.onRegenerate?.call(widget.message);
+                },
+              ),
+              _ActionIconButton(
+                icon: _isSpeaking
+                    ? Icons.stop_circle_outlined
+                    : Icons.volume_up_outlined,
+                tooltip: _isSpeaking ? 'Stop reading' : 'Read aloud',
+                onPressed: _toggleReadAloud,
+              ),
+              _ActionIconButton(
+                icon: _thumbUp ? Icons.thumb_up : Icons.thumb_up_outlined,
+                tooltip: 'Good response',
+                onPressed: () {
+                  setState(() {
+                    _thumbUp = !_thumbUp;
+                    if (_thumbUp) _thumbDown = false;
+                  });
+                },
+              ),
+              _ActionIconButton(
+                icon: _thumbDown ? Icons.thumb_down : Icons.thumb_down_outlined,
+                tooltip: 'Bad response',
+                onPressed: () {
+                  setState(() {
+                    _thumbDown = !_thumbDown;
+                    if (_thumbDown) _thumbUp = false;
+                  });
+                },
+              ),
+            ],
           ],
         ),
       ),
