@@ -21,7 +21,12 @@ class InputAreaWidget extends StatefulWidget {
   });
 
   final bool isStreaming;
-  final void Function(String text, List<ChatAttachment> attachments) onSend;
+  final void Function(
+    String text,
+    List<ChatAttachment> attachments, {
+    bool useCouncil,
+  })
+  onSend;
   final VoidCallback onStop;
 
   @override
@@ -35,12 +40,13 @@ class InputAreaWidgetState extends State<InputAreaWidget> {
   bool _focused = false;
 
   final List<ChatAttachment> _attachments = [];
+  bool _useCouncil = false;
 
   void _submit() {
     final text = _controller.text.trim();
     if (text.isEmpty && _attachments.isEmpty) return;
 
-    widget.onSend(text, List.from(_attachments));
+    widget.onSend(text, List.from(_attachments), useCouncil: _useCouncil);
     _controller.clear();
     setState(() {
       _attachments.clear();
@@ -151,6 +157,54 @@ class InputAreaWidgetState extends State<InputAreaWidget> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // -- LLM Council Toggle --
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: Checkbox(
+                                value: _useCouncil,
+                                activeColor: cs.primary,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                onChanged: (val) {
+                                  setState(() {
+                                    _useCouncil = val ?? false;
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Use LLM Council',
+                              style: tt.labelMedium?.copyWith(
+                                color: _useCouncil
+                                    ? cs.primary
+                                    : cs.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Tooltip(
+                              message:
+                                  'Runs your prompt through multiple AI personas for a more holistic answer',
+                              child: Icon(
+                                Icons.info_outline,
+                                size: 14,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
                       // -- Attachments Preview --
                       if (_attachments.isNotEmpty)
                         Padding(

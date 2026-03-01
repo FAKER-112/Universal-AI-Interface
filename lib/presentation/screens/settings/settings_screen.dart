@@ -8,6 +8,10 @@ import 'package:ai_client_service/main.dart';
 import 'package:ai_client_service/presentation/providers/provider_config_provider.dart';
 import 'package:ai_client_service/presentation/providers/theme_provider.dart';
 import 'package:ai_client_service/services/provider_factory.dart';
+import 'package:ai_client_service/data/models/council_member.dart';
+import 'package:ai_client_service/presentation/providers/llm_council_provider.dart';
+import 'package:uuid/uuid.dart';
+import 'package:uuid/uuid.dart';
 
 /// Settings screen with appearance controls, data storage location, and
 /// provider configuration form.
@@ -541,6 +545,62 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               : 'e.g. llama3, mistral, codellama',
                         ),
                       ),
+                      // Token Usage Mode
+                      _FieldLabel('Token Usage Mode'),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<TokenUsageMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: TokenUsageMode.lite,
+                              label: Text('Lite'),
+                              icon: Icon(Icons.bolt, size: 18),
+                            ),
+                            ButtonSegment(
+                              value: TokenUsageMode.extensive,
+                              label: Text('Extensive'),
+                              icon: Icon(Icons.electric_bolt, size: 18),
+                            ),
+                          ],
+                          selected: {providerConfig.tokenUsageMode},
+                          onSelectionChanged: (s) {
+                            final updated = providerConfig.copyWith(
+                              tokenUsageMode: s.first,
+                            );
+                            ref
+                                .read(providerConfigProvider.notifier)
+                                .update(updated);
+                          },
+                          showSelectedIcon: false,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Lite uses the model in an ordinary manner.\n'
+                        'Extensive will utilize the API extensively for advanced features (like auto-titling and parallel processing).',
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // =======================================================
+                      // LLM COUNCIL
+                      // =======================================================
+                      _SectionHeader(
+                        icon: Icons.groups_outlined,
+                        label: 'LLM Council Members',
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Customize the personas that participate in the parallel council thinking process.',
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildCouncilMembersSection(context),
                       const SizedBox(height: 32),
 
                       // Action buttons row
@@ -627,6 +687,140 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // LLM Council Section
+  // ---------------------------------------------------------------------------
+
+  Widget _buildCouncilMembersSection(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final members = ref.watch(councilMembersProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final member in members)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: cs.surfaceTint.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
+            child: ListTile(
+              title: Text(
+                member.name,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                member.systemPrompt,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    onPressed: () => _showEditMemberDialog(context, member),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: Colors.red,
+                    ),
+                    onPressed: () => ref
+                        .read(councilMembersProvider.notifier)
+                        .removeMember(member.id),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => _showEditMemberDialog(context, null),
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('Add Council Member'),
+        ),
+      ],
+    );
+  }
+
+  void _showEditMemberDialog(BuildContext context, CouncilMember? existing) {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final promptCtrl = TextEditingController(
+      text: existing?.systemPrompt ?? '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(existing == null ? 'Add Council Member' : 'Edit Member'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    hintText: 'e.g. UX Designer',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: promptCtrl,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'System Prompt',
+                    hintText: 'You are an expert...',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                final prompt = promptCtrl.text.trim();
+                if (name.isEmpty || prompt.isEmpty) return;
+
+                final member = CouncilMember(
+                  id: existing?.id ?? const Uuid().v4(),
+                  name: name,
+                  systemPrompt: prompt,
+                );
+
+                if (existing == null) {
+                  ref.read(councilMembersProvider.notifier).addMember(member);
+                } else {
+                  ref
+                      .read(councilMembersProvider.notifier)
+                      .updateMember(member);
+                }
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

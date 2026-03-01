@@ -24,6 +24,9 @@ _$ProviderConfigImpl _$$ProviderConfigImplFromJson(Map<String, dynamic> json) =>
       timeout: (json['timeout'] as num?)?.toInt() ?? 30,
       maxRetries: (json['maxRetries'] as num?)?.toInt() ?? 3,
       isPinned: json['isPinned'] as bool? ?? true,
+      tokenUsageMode: $enumDecodeNullable(
+              _$TokenUsageModeEnumMap, json['tokenUsageMode']) ??
+          TokenUsageMode.lite,
     );
 
 Map<String, dynamic> _$$ProviderConfigImplToJson(
@@ -45,9 +48,15 @@ Map<String, dynamic> _$$ProviderConfigImplToJson(
       'timeout': instance.timeout,
       'maxRetries': instance.maxRetries,
       'isPinned': instance.isPinned,
+      'tokenUsageMode': _$TokenUsageModeEnumMap[instance.tokenUsageMode]!,
     };
 
 const _$ProviderTypeEnumMap = {
   ProviderType.openai: 'openai',
   ProviderType.ollama: 'ollama',
+};
+
+const _$TokenUsageModeEnumMap = {
+  TokenUsageMode.lite: 'lite',
+  TokenUsageMode.extensive: 'extensive',
 };

@@ -83,13 +83,18 @@ const IsarProviderConfigSchema = CollectionSchema(
       name: r'timeout',
       type: IsarType.long,
     ),
-    r'topP': PropertySchema(
+    r'tokenUsageMode': PropertySchema(
       id: 13,
+      name: r'tokenUsageMode',
+      type: IsarType.string,
+    ),
+    r'topP': PropertySchema(
+      id: 14,
       name: r'topP',
       type: IsarType.double,
     ),
     r'type': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'type',
       type: IsarType.string,
     )
@@ -108,6 +113,19 @@ const IsarProviderConfigSchema = CollectionSchema(
       properties: [
         IndexPropertySchema(
           name: r'configId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
+    r'tokenUsageMode': IndexSchema(
+      id: -2439044834142659818,
+      name: r'tokenUsageMode',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'tokenUsageMode',
           type: IndexType.hash,
           caseSensitive: true,
         )
@@ -134,6 +152,7 @@ int _isarProviderConfigEstimateSize(
   bytesCount += 3 + object.modelName.length * 3;
   bytesCount += 3 + object.name.length * 3;
   bytesCount += 3 + object.organization.length * 3;
+  bytesCount += 3 + object.tokenUsageMode.length * 3;
   bytesCount += 3 + object.type.length * 3;
   return bytesCount;
 }
@@ -157,8 +176,9 @@ void _isarProviderConfigSerialize(
   writer.writeDouble(offsets[10], object.presencePenalty);
   writer.writeDouble(offsets[11], object.temperature);
   writer.writeLong(offsets[12], object.timeout);
-  writer.writeDouble(offsets[13], object.topP);
-  writer.writeString(offsets[14], object.type);
+  writer.writeString(offsets[13], object.tokenUsageMode);
+  writer.writeDouble(offsets[14], object.topP);
+  writer.writeString(offsets[15], object.type);
 }
 
 IsarProviderConfig _isarProviderConfigDeserialize(
@@ -182,8 +202,9 @@ IsarProviderConfig _isarProviderConfigDeserialize(
   object.presencePenalty = reader.readDouble(offsets[10]);
   object.temperature = reader.readDouble(offsets[11]);
   object.timeout = reader.readLong(offsets[12]);
-  object.topP = reader.readDouble(offsets[13]);
-  object.type = reader.readString(offsets[14]);
+  object.tokenUsageMode = reader.readString(offsets[13]);
+  object.topP = reader.readDouble(offsets[14]);
+  object.type = reader.readString(offsets[15]);
   return object;
 }
 
@@ -221,8 +242,10 @@ P _isarProviderConfigDeserializeProp<P>(
     case 12:
       return (reader.readLong(offset)) as P;
     case 13:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 14:
+      return (reader.readDouble(offset)) as P;
+    case 15:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -417,6 +440,51 @@ extension IsarProviderConfigQueryWhere
               indexName: r'configId',
               lower: [],
               upper: [configId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterWhereClause>
+      tokenUsageModeEqualTo(String tokenUsageMode) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'tokenUsageMode',
+        value: [tokenUsageMode],
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterWhereClause>
+      tokenUsageModeNotEqualTo(String tokenUsageMode) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'tokenUsageMode',
+              lower: [],
+              upper: [tokenUsageMode],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'tokenUsageMode',
+              lower: [tokenUsageMode],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'tokenUsageMode',
+              lower: [tokenUsageMode],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'tokenUsageMode',
+              lower: [],
+              upper: [tokenUsageMode],
               includeUpper: false,
             ));
       }
@@ -1675,6 +1743,142 @@ extension IsarProviderConfigQueryFilter
   }
 
   QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
+      tokenUsageModeEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tokenUsageMode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
+      tokenUsageModeGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'tokenUsageMode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
+      tokenUsageModeLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'tokenUsageMode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
+      tokenUsageModeBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'tokenUsageMode',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
+      tokenUsageModeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'tokenUsageMode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
+      tokenUsageModeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'tokenUsageMode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
+      tokenUsageModeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'tokenUsageMode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
+      tokenUsageModeMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'tokenUsageMode',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
+      tokenUsageModeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tokenUsageMode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
+      tokenUsageModeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'tokenUsageMode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterFilterCondition>
       topPEqualTo(
     double value, {
     double epsilon = Query.epsilon,
@@ -2068,6 +2272,20 @@ extension IsarProviderConfigQuerySortBy
   }
 
   QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterSortBy>
+      sortByTokenUsageMode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tokenUsageMode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterSortBy>
+      sortByTokenUsageModeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tokenUsageMode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterSortBy>
       sortByTopP() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'topP', Sort.asc);
@@ -2295,6 +2513,20 @@ extension IsarProviderConfigQuerySortThenBy
   }
 
   QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterSortBy>
+      thenByTokenUsageMode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tokenUsageMode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterSortBy>
+      thenByTokenUsageModeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tokenUsageMode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QAfterSortBy>
       thenByTopP() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'topP', Sort.asc);
@@ -2417,6 +2649,14 @@ extension IsarProviderConfigQueryWhereDistinct
   }
 
   QueryBuilder<IsarProviderConfig, IsarProviderConfig, QDistinct>
+      distinctByTokenUsageMode({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'tokenUsageMode',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, IsarProviderConfig, QDistinct>
       distinctByTopP() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'topP');
@@ -2521,6 +2761,13 @@ extension IsarProviderConfigQueryProperty
   QueryBuilder<IsarProviderConfig, int, QQueryOperations> timeoutProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'timeout');
+    });
+  }
+
+  QueryBuilder<IsarProviderConfig, String, QQueryOperations>
+      tokenUsageModeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'tokenUsageMode');
     });
   }
 

@@ -235,7 +235,7 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
                       ? _buildSkeletonLoader(context)
                       : (widget.message.content.isEmpty && !widget.isStreaming
                             ? _buildErrorOrEmptyState(context)
-                            : _buildMarkdown(context)),
+                            : _buildContentArea(context)),
                 ),
               ),
             ],
@@ -342,8 +342,113 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
     );
   }
 
+  (String?, String) _splitThinking(String content) {
+    if (!content.contains('<think>')) return (null, content);
+    final startIndex = content.indexOf('<think>');
+    final endIndex = content.indexOf('</think>');
+
+    if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+      final thinkText = content.substring(startIndex + 7, endIndex).trim();
+      final mainText = content.substring(endIndex + 8).trim();
+      return (thinkText, mainText);
+    } else if (startIndex != -1 && endIndex == -1) {
+      // Still streaming the thinking block
+      final thinkText = content.substring(startIndex + 7).trim();
+      return (thinkText, '');
+    }
+
+    return (null, content);
+  }
+
+  Widget _buildContentArea(BuildContext context) {
+    final (thinkText, mainText) = _splitThinking(widget.message.content);
+
+    if (thinkText == null) {
+      return _buildMarkdown(context, widget.message.content);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildThinkBlock(context, thinkText, mainText.isEmpty),
+        if (mainText.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildMarkdown(context, mainText),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildThinkBlock(
+    BuildContext context,
+    String thinkText,
+    bool isStreamingThink,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceTint.withValues(alpha: 0.05),
+        border: Border(
+          left: BorderSide(color: cs.primary.withValues(alpha: 0.5), width: 3),
+        ),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+        ),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: isStreamingThink,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          childrenPadding: const EdgeInsets.only(
+            left: 16,
+            right: 16,
+            bottom: 16,
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.psychology_outlined, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Thinking Process',
+                style: tt.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              if (isStreamingThink) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 10,
+                  height: 10,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: cs.primary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          children: [
+            SelectableText(
+              thinkText,
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.5,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ---- Markdown body ----
-  Widget _buildMarkdown(BuildContext context) {
+  Widget _buildMarkdown(BuildContext context, String text) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
@@ -353,7 +458,7 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
         : cs.onSurface.withValues(alpha: 0.06);
 
     return MarkdownBody(
-      data: widget.message.content,
+      data: text,
       selectable: true,
       extensionSet: md.ExtensionSet.gitHubWeb,
       styleSheet: MarkdownStyleSheet(

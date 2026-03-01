@@ -165,7 +165,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         InputAreaWidget(
           key: _inputKey,
           isStreaming: chatState.isStreaming,
-          onSend: (text, attachments) {
+          onSend: (text, attachments, {useCouncil = false}) {
             final activeChatId = ref.read(chatNotifierProvider).activeSessionId;
             final config = ref.read(providerConfigProvider);
             ref
@@ -175,6 +175,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   config,
                   sessionId: activeChatId,
                   attachments: attachments,
+                  useCouncil: useCouncil,
                 );
           },
           onStop: () {

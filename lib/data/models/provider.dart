@@ -11,6 +11,14 @@ enum ProviderType {
   ollama,
 }
 
+/// Token usage strategy for the AI application.
+enum TokenUsageMode {
+  @JsonValue('lite')
+  lite,
+  @JsonValue('extensive')
+  extensive,
+}
+
 /// Configuration for an AI provider (e.g. OpenAI, Ollama).
 @freezed
 abstract class ProviderConfig with _$ProviderConfig {
@@ -32,6 +40,7 @@ abstract class ProviderConfig with _$ProviderConfig {
     @Default(30) int timeout,
     @Default(3) int maxRetries,
     @Default(true) bool isPinned,
+    @Default(TokenUsageMode.lite) TokenUsageMode tokenUsageMode,
   }) = _ProviderConfig;
 
   factory ProviderConfig.fromJson(Map<String, dynamic> json) =>

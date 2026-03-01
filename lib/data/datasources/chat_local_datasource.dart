@@ -204,6 +204,9 @@ class LocalDataSource {
     timeout: e.timeout,
     maxRetries: e.maxRetries,
     isPinned: e.isPinned,
+    tokenUsageMode: e.tokenUsageMode == 'extensive'
+        ? TokenUsageMode.extensive
+        : TokenUsageMode.lite,
   );
 
   void _fillConfigEntity(IsarProviderConfig entity, ProviderConfig config) {
@@ -222,7 +225,10 @@ class LocalDataSource {
       ..presencePenalty = config.presencePenalty
       ..timeout = config.timeout
       ..maxRetries = config.maxRetries
-      ..isPinned = config.isPinned;
+      ..isPinned = config.isPinned
+      ..tokenUsageMode = config.tokenUsageMode == TokenUsageMode.extensive
+          ? 'extensive'
+          : 'lite';
   }
 
   static String _roleToString(MessageRole role) => role.map(

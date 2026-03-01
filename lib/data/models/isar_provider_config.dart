@@ -43,4 +43,7 @@ class IsarProviderConfig {
   int maxRetries = 3;
 
   bool isPinned = true;
+
+  @Index()
+  String tokenUsageMode = 'lite';
 }

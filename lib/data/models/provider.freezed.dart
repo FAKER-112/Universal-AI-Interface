@@ -37,6 +37,7 @@ mixin _$ProviderConfig {
   int get timeout => throw _privateConstructorUsedError;
   int get maxRetries => throw _privateConstructorUsedError;
   bool get isPinned => throw _privateConstructorUsedError;
+  TokenUsageMode get tokenUsageMode => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -66,7 +67,8 @@ abstract class $ProviderConfigCopyWith<$Res> {
       double presencePenalty,
       int timeout,
       int maxRetries,
-      bool isPinned});
+      bool isPinned,
+      TokenUsageMode tokenUsageMode});
 }
 
 /// @nodoc
@@ -98,6 +100,7 @@ class _$ProviderConfigCopyWithImpl<$Res, $Val extends ProviderConfig>
     Object? timeout = null,
     Object? maxRetries = null,
     Object? isPinned = null,
+    Object? tokenUsageMode = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -164,6 +167,10 @@ class _$ProviderConfigCopyWithImpl<$Res, $Val extends ProviderConfig>
           ? _value.isPinned
           : isPinned // ignore: cast_nullable_to_non_nullable
               as bool,
+      tokenUsageMode: null == tokenUsageMode
+          ? _value.tokenUsageMode
+          : tokenUsageMode // ignore: cast_nullable_to_non_nullable
+              as TokenUsageMode,
     ) as $Val);
   }
 }
@@ -192,7 +199,8 @@ abstract class _$$ProviderConfigImplCopyWith<$Res>
       double presencePenalty,
       int timeout,
       int maxRetries,
-      bool isPinned});
+      bool isPinned,
+      TokenUsageMode tokenUsageMode});
 }
 
 /// @nodoc
@@ -222,6 +230,7 @@ class __$$ProviderConfigImplCopyWithImpl<$Res>
     Object? timeout = null,
     Object? maxRetries = null,
     Object? isPinned = null,
+    Object? tokenUsageMode = null,
   }) {
     return _then(_$ProviderConfigImpl(
       id: null == id
@@ -288,6 +297,10 @@ class __$$ProviderConfigImplCopyWithImpl<$Res>
           ? _value.isPinned
           : isPinned // ignore: cast_nullable_to_non_nullable
               as bool,
+      tokenUsageMode: null == tokenUsageMode
+          ? _value.tokenUsageMode
+          : tokenUsageMode // ignore: cast_nullable_to_non_nullable
+              as TokenUsageMode,
     ));
   }
 }
@@ -311,7 +324,8 @@ class _$ProviderConfigImpl implements _ProviderConfig {
       this.presencePenalty = 0.0,
       this.timeout = 30,
       this.maxRetries = 3,
-      this.isPinned = true});
+      this.isPinned = true,
+      this.tokenUsageMode = TokenUsageMode.lite});
 
   factory _$ProviderConfigImpl.fromJson(Map<String, dynamic> json) =>
       _$$ProviderConfigImplFromJson(json);
@@ -360,10 +374,13 @@ class _$ProviderConfigImpl implements _ProviderConfig {
   @override
   @JsonKey()
   final bool isPinned;
+  @override
+  @JsonKey()
+  final TokenUsageMode tokenUsageMode;
 
   @override
   String toString() {
-    return 'ProviderConfig(id: $id, name: $name, type: $type, baseUrl: $baseUrl, apiKey: $apiKey, modelName: $modelName, description: $description, organization: $organization, temperature: $temperature, maxTokens: $maxTokens, topP: $topP, frequencyPenalty: $frequencyPenalty, presencePenalty: $presencePenalty, timeout: $timeout, maxRetries: $maxRetries, isPinned: $isPinned)';
+    return 'ProviderConfig(id: $id, name: $name, type: $type, baseUrl: $baseUrl, apiKey: $apiKey, modelName: $modelName, description: $description, organization: $organization, temperature: $temperature, maxTokens: $maxTokens, topP: $topP, frequencyPenalty: $frequencyPenalty, presencePenalty: $presencePenalty, timeout: $timeout, maxRetries: $maxRetries, isPinned: $isPinned, tokenUsageMode: $tokenUsageMode)';
   }
 
   @override
@@ -395,7 +412,9 @@ class _$ProviderConfigImpl implements _ProviderConfig {
             (identical(other.maxRetries, maxRetries) ||
                 other.maxRetries == maxRetries) &&
             (identical(other.isPinned, isPinned) ||
-                other.isPinned == isPinned));
+                other.isPinned == isPinned) &&
+            (identical(other.tokenUsageMode, tokenUsageMode) ||
+                other.tokenUsageMode == tokenUsageMode));
   }
 
   @JsonKey(ignore: true)
@@ -417,7 +436,8 @@ class _$ProviderConfigImpl implements _ProviderConfig {
       presencePenalty,
       timeout,
       maxRetries,
-      isPinned);
+      isPinned,
+      tokenUsageMode);
 
   @JsonKey(ignore: true)
   @override
@@ -451,7 +471,8 @@ abstract class _ProviderConfig implements ProviderConfig {
       final double presencePenalty,
       final int timeout,
       final int maxRetries,
-      final bool isPinned}) = _$ProviderConfigImpl;
+      final bool isPinned,
+      final TokenUsageMode tokenUsageMode}) = _$ProviderConfigImpl;
 
   factory _ProviderConfig.fromJson(Map<String, dynamic> json) =
       _$ProviderConfigImpl.fromJson;
@@ -488,6 +509,8 @@ abstract class _ProviderConfig implements ProviderConfig {
   int get maxRetries;
   @override
   bool get isPinned;
+  @override
+  TokenUsageMode get tokenUsageMode;
   @override
   @JsonKey(ignore: true)
   _$$ProviderConfigImplCopyWith<_$ProviderConfigImpl> get copyWith =>

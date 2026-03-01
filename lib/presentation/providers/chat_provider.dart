@@ -14,6 +14,10 @@ import 'package:ai_client_service/main.dart';
 import 'package:ai_client_service/presentation/providers/provider_config_provider.dart';
 import 'package:ai_client_service/services/provider_factory.dart';
 
+import 'package:ai_client_service/data/models/council_member.dart';
+import 'package:ai_client_service/domain/usecases/llm_council_usecase.dart';
+import 'package:ai_client_service/presentation/providers/llm_council_provider.dart';
+
 // ---------------------------------------------------------------------------
 // Providers
 // ---------------------------------------------------------------------------
@@ -32,13 +36,19 @@ final aiRepositoryProvider = Provider<AIRepository>((ref) {
   return RepositoryFactory.create(config);
 });
 
-/// Exposes the [ChatNotifier] and its [ChatState] to the widget tree.
 final chatNotifierProvider = StateNotifierProvider<ChatNotifier, ChatState>((
   ref,
 ) {
   final repository = ref.watch(aiRepositoryProvider);
   final localDataSource = ref.watch(localDataSourceProvider);
-  return ChatNotifier(repository, localDataSource);
+  final councilMembers = ref.watch(councilMembersProvider);
+  final councilUsecase = LLMCouncilUsecase(repository);
+  return ChatNotifier(
+    repository,
+    localDataSource,
+    councilUsecase,
+    councilMembers,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -122,12 +132,19 @@ class ChatState {
 // ---------------------------------------------------------------------------
 
 class ChatNotifier extends StateNotifier<ChatState> {
-  ChatNotifier(this._repository, this._localDb) : super(const ChatState()) {
+  ChatNotifier(
+    this._repository,
+    this._localDb,
+    this._councilUsecase,
+    this._councilMembers,
+  ) : super(const ChatState()) {
     _loadSessionsFromDb();
   }
 
   final AIRepository _repository;
   final LocalDataSource _localDb;
+  final LLMCouncilUsecase _councilUsecase;
+  final List<CouncilMember> _councilMembers;
   final _uuid = const Uuid();
   StreamSubscription<String>? _activeSubscription;
 
@@ -286,6 +303,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     ProviderConfig config, {
     String? sessionId,
     List<ChatAttachment>? attachments,
+    bool useCouncil = false,
   }) async {
     // 1. If this is a new chat, create a session first.
     String activeSessionId = sessionId ?? state.activeSessionId;
@@ -314,6 +332,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
           createdAt: sessionData.createdAt,
         ),
       );
+
+      // Auto-titling for extensive mode
+      if (config.tokenUsageMode == TokenUsageMode.extensive &&
+          prompt.isNotEmpty) {
+        unawaited(_generateTitle(activeSessionId, prompt, config));
+      }
     }
 
     // 2. Append user message.
@@ -362,53 +386,59 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final buffer = StringBuffer();
 
     try {
-      _activeSubscription = _repository
-          .sendMessage(state.messages, prompt)
-          .listen(
-            (token) {
-              buffer.write(token);
-              _updateAssistantMessage(
-                assistantId,
-                buffer.toString(),
-                const MessageStatus.sending(),
-              );
-            },
-            onDone: () {
-              _updateAssistantMessage(
-                assistantId,
-                buffer.toString(),
-                const MessageStatus.sent(),
-              );
-              _syncSessionMessages();
-              state = state.copyWith(isStreaming: false);
-              _activeSubscription = null;
+      final stream = useCouncil
+          ? _councilUsecase.executeCouncil(
+              state.messages,
+              prompt,
+              _councilMembers,
+            )
+          : _repository.sendMessage(state.messages, prompt);
 
-              // Persist final assistant message to Isar.
-              _persistAssistantMessage(assistantId, buffer.toString());
-            },
-            onError: (Object error) {
-              final errorMsg = error is Exception
-                  ? error.toString().replaceFirst('Exception: ', '')
-                  : error.toString();
-              _updateAssistantMessage(
-                assistantId,
-                buffer.isEmpty
-                    ? 'Error: $errorMsg'
-                    : '${buffer.toString()}\n\n---\n**Error:** $errorMsg',
-                MessageStatus.error(errorMsg),
-              );
-              _syncSessionMessages();
-              state = state.copyWith(isStreaming: false);
-              _activeSubscription = null;
-
-              // Persist error message to Isar.
-              _persistAssistantMessage(
-                assistantId,
-                buffer.isEmpty ? 'Error: $errorMsg' : buffer.toString(),
-                errorMsg: errorMsg,
-              );
-            },
+      _activeSubscription = stream.listen(
+        (token) {
+          buffer.write(token);
+          _updateAssistantMessage(
+            assistantId,
+            buffer.toString(),
+            const MessageStatus.sending(),
           );
+        },
+        onDone: () {
+          _updateAssistantMessage(
+            assistantId,
+            buffer.toString(),
+            const MessageStatus.sent(),
+          );
+          _syncSessionMessages();
+          state = state.copyWith(isStreaming: false);
+          _activeSubscription = null;
+
+          // Persist final assistant message to Isar.
+          _persistAssistantMessage(assistantId, buffer.toString());
+        },
+        onError: (Object error) {
+          final errorMsg = error is Exception
+              ? error.toString().replaceFirst('Exception: ', '')
+              : error.toString();
+          _updateAssistantMessage(
+            assistantId,
+            buffer.isEmpty
+                ? 'Error: $errorMsg'
+                : '${buffer.toString()}\n\n---\n**Error:** $errorMsg',
+            MessageStatus.error(errorMsg),
+          );
+          _syncSessionMessages();
+          state = state.copyWith(isStreaming: false);
+          _activeSubscription = null;
+
+          // Persist error message to Isar.
+          _persistAssistantMessage(
+            assistantId,
+            buffer.isEmpty ? 'Error: $errorMsg' : buffer.toString(),
+            errorMsg: errorMsg,
+          );
+        },
+      );
     } catch (e) {
       final errorMsg = e is Exception
           ? e.toString().replaceFirst('Exception: ', '')
@@ -485,5 +515,48 @@ class ChatNotifier extends StateNotifier<ChatState> {
     );
 
     unawaited(_localDb.saveMessage(sid, msg));
+  }
+
+  /// Automatically generates a title using the LLM in the background and updates the active session.
+  Future<void> _generateTitle(
+    String sessionId,
+    String firstMessage,
+    ProviderConfig config,
+  ) async {
+    final titlePrompt =
+        'Generate a short 3-5 word title for a chat starting with this message. Output ONLY the title, no markdown formatting, no quotes, or extra text: "$firstMessage"';
+
+    final buffer = StringBuffer();
+    try {
+      final stream = _repository.sendMessage([], titlePrompt);
+      await for (final token in stream) {
+        buffer.write(token);
+      }
+
+      final title = buffer
+          .toString()
+          .trim()
+          .replaceAll('"', '')
+          .replaceAll('\n', ' ');
+      if (title.isNotEmpty) {
+        final session = state.sessions[sessionId];
+        if (session != null) {
+          session.title = title;
+          // Trigger UI rebuild by copying the map
+          state = state.copyWith(sessions: Map.from(state.sessions));
+
+          await _localDb.saveSession(
+            ChatSession(
+              id: session.id,
+              title: title,
+              providerId: session.providerId,
+              createdAt: session.createdAt,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Silently fail if auto-title background job errors out
+    }
   }
 }

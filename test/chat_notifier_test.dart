@@ -9,6 +9,7 @@ import 'package:ai_client_service/data/models/isar_provider_config.dart';
 import 'package:ai_client_service/data/models/provider.dart';
 import 'package:ai_client_service/data/repositories/chat_repository.dart';
 import 'package:ai_client_service/presentation/providers/chat_provider.dart';
+import 'package:ai_client_service/domain/usecases/llm_council_usecase.dart';
 
 void main() {
   late ChatNotifier notifier;
@@ -25,8 +26,9 @@ void main() {
       directory: '',
       name: 'test_${DateTime.now().millisecondsSinceEpoch}',
     );
+    final repo = MockAIRepository();
     localDb = LocalDataSource(isar);
-    notifier = ChatNotifier(MockAIRepository(), localDb);
+    notifier = ChatNotifier(repo, localDb, LLMCouncilUsecase(repo), []);
   });
 
   tearDown(() async {
