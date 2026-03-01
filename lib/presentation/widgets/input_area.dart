@@ -25,10 +25,10 @@ class InputAreaWidget extends StatefulWidget {
   final VoidCallback onStop;
 
   @override
-  State<InputAreaWidget> createState() => _InputAreaWidgetState();
+  State<InputAreaWidget> createState() => InputAreaWidgetState();
 }
 
-class _InputAreaWidgetState extends State<InputAreaWidget> {
+class InputAreaWidgetState extends State<InputAreaWidget> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
@@ -79,6 +79,15 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
     setState(() {
       _attachments.removeWhere((attr) => attr.id == id);
     });
+  }
+
+  void setInput(String text, List<ChatAttachment> attachments) {
+    setState(() {
+      _controller.text = text;
+      _attachments.clear();
+      _attachments.addAll(attachments);
+    });
+    _focusNode.requestFocus();
   }
 
   @override
