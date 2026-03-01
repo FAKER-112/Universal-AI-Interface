@@ -30,6 +30,9 @@ class IsarChatMessage {
   /// Optional error description (only populated when status == "error").
   String? errorMessage;
 
+  /// Stringified JSON of attachments for Isar persistence.
+  late List<String> attachmentsJson;
+
   DateTime get timestamp => DateTime.fromMillisecondsSinceEpoch(timestampMs);
 
   set timestamp(DateTime dt) => timestampMs = dt.millisecondsSinceEpoch;

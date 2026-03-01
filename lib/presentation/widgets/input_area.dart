@@ -1,5 +1,11 @@
+import 'dart:io';
+
+import 'package:ai_client_service/data/models/chat_attachment.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
+import 'package:mime/mime.dart';
 
 import 'package:ai_client_service/core/theme/app_theme.dart';
 
@@ -15,7 +21,7 @@ class InputAreaWidget extends StatefulWidget {
   });
 
   final bool isStreaming;
-  final ValueChanged<String> onSend;
+  final void Function(String text, List<ChatAttachment> attachments) onSend;
   final VoidCallback onStop;
 
   @override
@@ -29,12 +35,50 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
   bool _focused = false;
   bool _showAdvanced = false;
 
+  final List<ChatAttachment> _attachments = [];
+
   void _submit() {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    widget.onSend(text);
+    if (text.isEmpty && _attachments.isEmpty) return;
+
+    widget.onSend(text, List.from(_attachments));
     _controller.clear();
+    setState(() {
+      _attachments.clear();
+    });
     _focusNode.requestFocus();
+  }
+
+  Future<void> _pickFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.any,
+    );
+
+    if (result != null) {
+      setState(() {
+        for (final file in result.files) {
+          if (file.path != null) {
+            final mimeType =
+                lookupMimeType(file.name) ?? 'application/octet-stream';
+            _attachments.add(
+              ChatAttachment(
+                id: const Uuid().v4(),
+                path: file.path!,
+                name: file.name,
+                mimeType: mimeType,
+              ),
+            );
+          }
+        }
+      });
+    }
+  }
+
+  void _removeAttachment(String id) {
+    setState(() {
+      _attachments.removeWhere((attr) => attr.id == id);
+    });
   }
 
   @override
@@ -97,8 +141,76 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // -- Expandable text field --
+                      // -- Attachments Preview --
+                      if (_attachments.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: _attachments.map((file) {
+                                final isImage = file.mimeType.startsWith(
+                                  'image/',
+                                );
+                                return Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: cs.surfaceTint.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: chatExt.subtleBorder,
+                                    ),
+                                    image: isImage
+                                        ? DecorationImage(
+                                            image: FileImage(File(file.path)),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null,
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      if (!isImage)
+                                        Center(
+                                          child: Icon(
+                                            Icons.insert_drive_file,
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      Positioned(
+                                        top: -2,
+                                        right: -2,
+                                        child: InkWell(
+                                          onTap: () =>
+                                              _removeAttachment(file.id),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: cs.inverseSurface,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            padding: const EdgeInsets.all(2),
+                                            child: Icon(
+                                              Icons.close,
+                                              size: 12,
+                                              color: cs.onInverseSurface,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+
+                      // -- Expandable text field and buttons --
                       ConstrainedBox(
                         constraints: BoxConstraints(
                           minHeight: 48,
@@ -107,6 +219,23 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
+                            // Attachment button
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 6,
+                                bottom: 6,
+                              ),
+                              child: IconButton(
+                                onPressed: widget.isStreaming
+                                    ? null
+                                    : _pickFiles,
+                                icon: const Icon(
+                                  Icons.add_circle_outline_rounded,
+                                ),
+                                color: cs.onSurfaceVariant,
+                                tooltip: 'Attach files',
+                              ),
+                            ),
                             // Text field -- takes full width, grows vertically
                             Expanded(
                               child: Scrollbar(
@@ -117,11 +246,17 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
                                   onKeyEvent: (event) {
                                     if (event is KeyDownEvent &&
                                         event.logicalKey ==
-                                            LogicalKeyboardKey.enter &&
-                                        !HardwareKeyboard
-                                            .instance
-                                            .isShiftPressed) {
-                                      _submit();
+                                            LogicalKeyboardKey.enter) {
+                                      final isCtrlOrCmd =
+                                          HardwareKeyboard
+                                              .instance
+                                              .isControlPressed ||
+                                          HardwareKeyboard
+                                              .instance
+                                              .isMetaPressed;
+                                      if (isCtrlOrCmd) {
+                                        _submit();
+                                      }
                                     }
                                   },
                                   child: TextField(
@@ -137,7 +272,7 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
                                     decoration: InputDecoration(
                                       hintText: widget.isStreaming
                                           ? 'Waiting for response...'
-                                          : 'Ask anything...',
+                                          : 'Ask anything... (Ctrl+Enter to send)',
                                       hintStyle: tt.bodyMedium?.copyWith(
                                         color: cs.onSurfaceVariant.withValues(
                                           alpha: 0.4,
@@ -146,7 +281,7 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
                                       border: InputBorder.none,
                                       filled: false,
                                       contentPadding: const EdgeInsets.fromLTRB(
-                                        16,
+                                        8,
                                         14,
                                         8,
                                         14,
@@ -154,7 +289,6 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
                                       isDense: true,
                                     ),
                                     enabled: !widget.isStreaming,
-                                    onSubmitted: (_) => _submit(),
                                   ),
                                 ),
                               ),
@@ -176,9 +310,9 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
                                   : ValueListenableBuilder<TextEditingValue>(
                                       valueListenable: _controller,
                                       builder: (context, value, _) {
-                                        final active = value.text
-                                            .trim()
-                                            .isNotEmpty;
+                                        final active =
+                                            value.text.trim().isNotEmpty ||
+                                            _attachments.isNotEmpty;
                                         return _CircleActionButton(
                                           onPressed: active ? _submit : null,
                                           icon: Icons.arrow_upward_rounded,

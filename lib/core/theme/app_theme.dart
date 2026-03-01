@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ---------------------------------------------------------------------------
@@ -192,6 +193,16 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: cs.brightness == Brightness.dark
+              ? Brightness.light
+              : Brightness.dark,
+          systemNavigationBarColor: cs.surface,
+          systemNavigationBarIconBrightness: cs.brightness == Brightness.dark
+              ? Brightness.light
+              : Brightness.dark,
+        ),
         titleTextStyle: textTheme.titleLarge?.copyWith(
           color: cs.onSurface,
           fontWeight: FontWeight.w600,

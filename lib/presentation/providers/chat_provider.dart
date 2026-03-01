@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:ai_client_service/data/datasources/chat_local_datasource.dart';
+import 'package:ai_client_service/data/models/chat_attachment.dart';
 import 'package:ai_client_service/data/models/chat_message.dart';
 import 'package:ai_client_service/data/models/chat_session.dart';
 import 'package:ai_client_service/data/models/provider.dart';
@@ -199,27 +200,34 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   /// Sends a user [prompt], appends the user message to state, then streams
   /// the assistant response token-by-token.
-  Future<void> sendMessage(String prompt) async {
+  Future<void> sendMessage(
+    String prompt,
+    ProviderConfig config, {
+    String? sessionId,
+    List<ChatAttachment>? attachments,
+  }) async {
     // 1. If this is a new chat, create a session first.
-    String sessionId = state.activeSessionId;
+    String activeSessionId = sessionId ?? state.activeSessionId;
     Map<String, ChatSessionData> sessions = Map.from(state.sessions);
 
-    if (sessionId == 'new') {
-      sessionId = _uuid.v4();
+    if (activeSessionId == 'new') {
+      activeSessionId = _uuid.v4();
       final title = prompt.length > 40
           ? '${prompt.substring(0, 40)}...'
-          : prompt;
+          : prompt.isNotEmpty
+          ? prompt
+          : 'Attached files';
       final sessionData = ChatSessionData(
-        id: sessionId,
+        id: activeSessionId,
         title: title,
         createdAt: DateTime.now(),
       );
-      sessions[sessionId] = sessionData;
+      sessions[activeSessionId] = sessionData;
 
       // Persist the new session to Isar.
       await _localDb.saveSession(
         ChatSession(
-          id: sessionId,
+          id: activeSessionId,
           title: title,
           providerId: '',
           createdAt: sessionData.createdAt,
@@ -234,12 +242,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
       content: prompt,
       timestamp: DateTime.now(),
       status: const MessageStatus.sent(),
+      attachments: attachments ?? const [],
     );
 
     final updatedMessages = [...state.messages, userMessage];
 
     // Sync to session
-    final activeSession = sessions[sessionId];
+    final activeSession = sessions[activeSessionId];
     if (activeSession != null) {
       activeSession.messages
         ..clear()
@@ -250,11 +259,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
       messages: updatedMessages,
       isStreaming: true,
       sessions: sessions,
-      activeSessionId: sessionId,
+      activeSessionId: activeSessionId,
     );
 
     // Persist user message to Isar.
-    unawaited(_localDb.saveMessage(sessionId, userMessage));
+    unawaited(_localDb.saveMessage(activeSessionId, userMessage));
 
     // 3. Prepare a placeholder assistant message.
     final assistantId = _uuid.v4();

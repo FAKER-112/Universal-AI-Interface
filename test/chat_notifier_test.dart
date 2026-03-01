@@ -6,6 +6,7 @@ import 'package:ai_client_service/data/models/chat_message.dart';
 import 'package:ai_client_service/data/models/isar_chat_session.dart';
 import 'package:ai_client_service/data/models/isar_chat_message.dart';
 import 'package:ai_client_service/data/models/isar_provider_config.dart';
+import 'package:ai_client_service/data/models/provider.dart';
 import 'package:ai_client_service/data/repositories/chat_repository.dart';
 import 'package:ai_client_service/presentation/providers/chat_provider.dart';
 
@@ -48,7 +49,14 @@ void main() {
 
     test('sendMessage adds user and assistant messages to state', () async {
       // Fire the send -- it streams asynchronously via listen().
-      notifier.sendMessage('hello');
+      final dummyConfig = const ProviderConfig(
+        id: 'test',
+        name: 'test',
+        type: ProviderType.openai,
+        baseUrl: 'http://test',
+        modelName: 'test',
+      );
+      notifier.sendMessage('hello', dummyConfig);
 
       // Poll until the stream finishes rather than using a fixed delay.
       for (var i = 0; i < 200; i++) {
@@ -79,8 +87,15 @@ void main() {
     test(
       'cancelStream stops streaming and sets isStreaming to false',
       () async {
+        final dummyConfig = const ProviderConfig(
+          id: 'test',
+          name: 'test',
+          type: ProviderType.openai,
+          baseUrl: 'http://test',
+          modelName: 'test',
+        );
         // Start sending -- don't await completion.
-        notifier.sendMessage('hello');
+        notifier.sendMessage('hello', dummyConfig);
 
         // Give the stream just enough time to start.
         await Future.delayed(const Duration(milliseconds: 120));

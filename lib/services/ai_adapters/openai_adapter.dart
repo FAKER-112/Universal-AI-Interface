@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 
@@ -130,19 +131,60 @@ class OpenAIRepository implements AIRepository {
 
   // ---- helpers ----
 
-  List<Map<String, String>> _buildMessages(
+  List<Map<String, dynamic>> _buildMessages(
     List<ChatMessage> history,
     String prompt,
   ) {
-    final msgs = <Map<String, String>>[];
+    final msgs = <Map<String, dynamic>>[];
     for (final m in history) {
       final role = switch (m.role) {
         MessageRoleUser() => 'user',
         MessageRoleAssistant() => 'assistant',
         MessageRoleSystem() => 'system',
       };
+
       if (m.content.isEmpty && m.role is MessageRoleAssistant) continue;
-      msgs.add({'role': role, 'content': m.content});
+
+      if (m.attachments.isNotEmpty) {
+        // Multimodal structure
+        final contentArray = <Map<String, dynamic>>[];
+        if (m.content.isNotEmpty) {
+          contentArray.add({'type': 'text', 'text': m.content});
+        }
+
+        for (final att in m.attachments) {
+          try {
+            final file = File(att.path);
+            if (!file.existsSync()) continue;
+
+            final bytes = file.readAsBytesSync();
+            final base64String = base64Encode(bytes);
+
+            if (att.mimeType.startsWith('image/')) {
+              contentArray.add({
+                'type': 'image_url',
+                'image_url': {
+                  'url': 'data:${att.mimeType};base64,$base64String',
+                },
+              });
+            } else {
+              // If the provider supports other files via input, we'd add them here.
+              // Currently defaulting to text injection for generic files if possible,
+              // or waiting off standard definitions based on OpenAI's advanced specs.
+              // For now, only images are sent as true multimodal blocks universally.
+              contentArray.add({
+                'type': 'text',
+                'text': '[Attached File: ${att.name}, type: ${att.mimeType}]',
+              });
+            }
+            // ignore: empty_catches
+          } catch (_) {}
+        }
+        msgs.add({'role': role, 'content': contentArray});
+      } else {
+        // Standard text structure
+        msgs.add({'role': role, 'content': m.content});
+      }
     }
     return msgs;
   }

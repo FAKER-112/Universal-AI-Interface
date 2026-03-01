@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:ai_client_service/data/models/chat_attachment.dart';
 
 part 'chat_message.freezed.dart';
 part 'chat_message.g.dart';
@@ -35,6 +36,7 @@ abstract class ChatMessage with _$ChatMessage {
     required String content,
     required DateTime timestamp,
     required MessageStatus status,
+    @Default([]) List<ChatAttachment> attachments,
   }) = _ChatMessage;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) =>

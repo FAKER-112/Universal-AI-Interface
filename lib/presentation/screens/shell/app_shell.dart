@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:ai_client_service/core/theme/app_theme.dart';
 import 'package:ai_client_service/presentation/providers/chat_provider.dart';
 import 'package:ai_client_service/presentation/providers/theme_provider.dart';
+import 'package:ai_client_service/presentation/widgets/logo.dart';
+
+class NewChatIntent extends Intent {
+  const NewChatIntent();
+}
+
+class OpenSettingsIntent extends Intent {
+  const OpenSettingsIntent();
+}
 
 /// Responsive shell: collapsible sidebar on desktop, bottom nav + drawer on
 /// mobile, icons-only rail on tablet.
@@ -46,9 +56,88 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    if (w >= _tabletBreak) return _desktopLayout(context);
-    if (w >= _mobileBreak) return _tabletLayout(context);
-    return _mobileLayout(context);
+    Widget shellContent;
+    if (w >= _tabletBreak) {
+      shellContent = _desktopLayout(context);
+    } else if (w >= _mobileBreak) {
+      shellContent = _tabletLayout(context);
+    } else {
+      shellContent = _mobileLayout(context);
+    }
+
+    return Shortcuts(
+      shortcuts: <LogicalKeySet, Intent>{
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN):
+            const NewChatIntent(),
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyN):
+            const NewChatIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.comma):
+            const OpenSettingsIntent(),
+        LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.comma):
+            const OpenSettingsIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          NewChatIntent: CallbackAction<NewChatIntent>(
+            onInvoke: (intent) {
+              _onDestinationSelected(0);
+              return null;
+            },
+          ),
+          OpenSettingsIntent: CallbackAction<OpenSettingsIntent>(
+            onInvoke: (intent) {
+              _onDestinationSelected(2);
+              return null;
+            },
+          ),
+        },
+        child: PlatformMenuBar(
+          menus: <PlatformMenuItem>[
+            PlatformMenu(
+              label: 'AI Client',
+              menus: <PlatformMenuItem>[
+                if (PlatformProvidedMenuItem.hasMenu(
+                  PlatformProvidedMenuItemType.about,
+                ))
+                  const PlatformProvidedMenuItem(
+                    type: PlatformProvidedMenuItemType.about,
+                  ),
+                if (PlatformProvidedMenuItem.hasMenu(
+                  PlatformProvidedMenuItemType.quit,
+                ))
+                  const PlatformProvidedMenuItem(
+                    type: PlatformProvidedMenuItemType.quit,
+                  ),
+              ],
+            ),
+            PlatformMenu(
+              label: 'File',
+              menus: <PlatformMenuItem>[
+                PlatformMenuItem(
+                  label: 'New Chat',
+                  shortcut: const SingleActivator(
+                    LogicalKeyboardKey.keyN,
+                    meta: true,
+                  ),
+                  onSelected: () => _onDestinationSelected(0),
+                ),
+                PlatformMenuItem(
+                  label: 'Settings',
+                  shortcut: const SingleActivator(
+                    LogicalKeyboardKey.comma,
+                    meta: true,
+                  ),
+                  onSelected: () => _onDestinationSelected(2),
+                ),
+              ],
+            ),
+            // Basic Edit menu not needed natively unless using specific macOS features.
+            // Cut/Copy/Paste natively provided by TextField context menu.
+          ],
+          child: shellContent,
+        ),
+      ),
+    );
   }
 
   // =========================================================================
@@ -64,7 +153,7 @@ class _AppShellState extends State<AppShell> {
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            width: _sidebarOpen ? 260 : 0,
+            width: _sidebarOpen ? 240 : 0,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(color: chatExt.sidebarBg),
             child: _sidebarOpen
@@ -201,7 +290,6 @@ class _DesktopSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
     final settings = ref.watch(appSettingsProvider);
     final chatState = ref.watch(chatNotifierProvider);
@@ -209,87 +297,54 @@ class _DesktopSidebar extends ConsumerWidget {
     final isSettings = location.startsWith('/settings');
 
     return SizedBox(
-      width: 260,
+      width: 240,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // -- Header --
+          // -- Header: compact icon row --
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 6, 4),
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 12),
             child: Row(
               children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [cs.primary, cs.tertiary],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.auto_awesome,
-                    color: cs.onPrimary,
-                    size: 14,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'AI Client',
-                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ),
+                ConcentricCirclesLogo(size: 24, color: cs.primary),
+                const Spacer(),
                 IconButton(
                   onPressed: onCollapse,
-                  icon: const Icon(Icons.menu_open, size: 18),
+                  icon: const Icon(Icons.menu_open, size: 20),
                   tooltip: 'Collapse sidebar',
-                  splashRadius: 16,
-                  iconSize: 18,
+                  splashRadius: 18,
+                  iconSize: 20,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  padding: EdgeInsets.zero,
                 ),
               ],
             ),
           ),
-
-          // -- New Chat --
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () {
-                  ref.read(chatNotifierProvider.notifier).newChat();
-                  context.go('/chat/new');
-                },
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('New chat'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  textStyle: tt.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: _SidebarTile(
+              icon: Icons.edit_square,
+              label: 'New chat',
+              onTap: () {
+                ref.read(chatNotifierProvider.notifier).newChat();
+                context.go('/chat/new');
+              },
             ),
           ),
 
           const SizedBox(height: 4),
 
-          // -- Chat history (real sessions) --
+          // -- Chat history --
           Expanded(
             child: _ChatHistoryList(chatState: chatState, chatExt: chatExt),
           ),
 
-          Divider(indent: 10, endIndent: 10, color: chatExt.subtleBorder),
-
           // -- Footer: Settings + Theme toggle --
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+            padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
             child: Column(
               children: [
                 _SidebarTile(
@@ -298,7 +353,6 @@ class _DesktopSidebar extends ConsumerWidget {
                   selected: isSettings,
                   onTap: () => context.go('/settings'),
                 ),
-                const SizedBox(height: 2),
                 _SidebarTile(
                   icon: settings.themeMode == ThemeMode.dark
                       ? Icons.light_mode_outlined
@@ -334,67 +388,32 @@ class _MobileDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
     final chatState = ref.watch(chatNotifierProvider);
     final w = MediaQuery.sizeOf(context).width;
 
     return Drawer(
-      width: w * 0.85,
+      width: w * 0.80,
       backgroundColor: chatExt.sidebarBg,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header: compact icon + new chat button
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [cs.primary, cs.tertiary],
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.auto_awesome,
-                      color: cs.onPrimary,
-                      size: 14,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'AI Client',
-                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: ConcentricCirclesLogo(size: 24, color: cs.primary),
             ),
-
-            // New chat
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    ref.read(chatNotifierProvider.notifier).newChat();
-                    context.go('/chat/new');
-                    Navigator.of(context).pop();
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('New chat'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: _SidebarTile(
+                icon: Icons.edit_square,
+                label: 'New chat',
+                onTap: () {
+                  ref.read(chatNotifierProvider.notifier).newChat();
+                  context.go('/chat/new');
+                  Navigator.of(context).pop();
+                },
               ),
             ),
 
@@ -408,10 +427,8 @@ class _MobileDrawer extends ConsumerWidget {
               ),
             ),
 
-            Divider(indent: 10, endIndent: 10, color: chatExt.subtleBorder),
-
             Padding(
-              padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+              padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
               child: _SidebarTile(
                 icon: Icons.settings_outlined,
                 label: 'Settings',
@@ -474,27 +491,34 @@ class _ChatHistoryList extends ConsumerWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      itemCount: sessions.length,
-      itemBuilder: (context, index) {
-        final session = sessions[index];
-        final isActive = session.id == chatState.activeSessionId;
-
-        return _ChatHistoryTile(
-          session: session,
-          isActive: isActive,
-          chatExt: chatExt,
-          onTap: () {
-            ref.read(chatNotifierProvider.notifier).switchSession(session.id);
-            context.go('/chat/${session.id}');
-            onTap?.call();
-          },
-          onDelete: () {
-            ref.read(chatNotifierProvider.notifier).deleteSession(session.id);
-          },
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        // Simulates network refresh or reloads local DB instances
+        await Future.delayed(const Duration(milliseconds: 600));
       },
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: sessions.length,
+        itemBuilder: (context, index) {
+          final session = sessions[index];
+          final isActive = session.id == chatState.activeSessionId;
+
+          return _ChatHistoryTile(
+            session: session,
+            isActive: isActive,
+            chatExt: chatExt,
+            onTap: () {
+              ref.read(chatNotifierProvider.notifier).switchSession(session.id);
+              context.go('/chat/${session.id}');
+              onTap?.call();
+            },
+            onDelete: () {
+              ref.read(chatNotifierProvider.notifier).deleteSession(session.id);
+            },
+          );
+        },
+      ),
     );
   }
 }
@@ -537,8 +561,8 @@ class _ChatHistoryTileState extends State<_ChatHistoryTile> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          margin: const EdgeInsets.symmetric(vertical: 1),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          margin: EdgeInsets.zero,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: widget.isActive
                 ? cs.primaryContainer.withValues(alpha: 0.3)
@@ -643,7 +667,7 @@ class _SidebarTileState extends State<_SidebarTile> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: widget.selected
                 ? cs.primaryContainer.withValues(alpha: 0.3)

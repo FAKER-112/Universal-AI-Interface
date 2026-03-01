@@ -139,8 +139,17 @@ class ChatScreen extends ConsumerWidget {
         // -- Input --
         InputAreaWidget(
           isStreaming: chatState.isStreaming,
-          onSend: (text) {
-            ref.read(chatNotifierProvider.notifier).sendMessage(text);
+          onSend: (text, attachments) {
+            final activeChatId = ref.read(chatNotifierProvider).activeSessionId;
+            final config = ref.read(providerConfigProvider);
+            ref
+                .read(chatNotifierProvider.notifier)
+                .sendMessage(
+                  text,
+                  config,
+                  sessionId: activeChatId,
+                  attachments: attachments,
+                );
           },
           onStop: () {
             ref.read(chatNotifierProvider.notifier).cancelStream();

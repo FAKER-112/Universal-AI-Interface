@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -10,7 +12,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:ai_client_service/core/theme/app_theme.dart';
 import 'package:ai_client_service/data/models/chat_message.dart';
 
-/// A styled chat bubble that renders content as Markdown for assistant
+import 'package:ai_client_service/presentation/widgets/logo.dart';
+
 /// messages, with syntax-highlighted code blocks, language headers,
 /// copy-to-clipboard support, inline action buttons, and hover timestamps.
 class MessageBubbleWidget extends StatefulWidget {
@@ -67,9 +70,71 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
                 bottomRight: Radius.circular(4),
               ),
             ),
-            child: SelectableText(
-              widget.message.content,
-              style: tt.bodyMedium?.copyWith(color: cs.onSurface, height: 1.6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (widget.message.attachments.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.end,
+                      children: widget.message.attachments.map((att) {
+                        final isImage = att.mimeType.startsWith('image/');
+                        if (isImage) {
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(
+                              File(att.path),
+                              width: 150,
+                              height: 150,
+                              fit: BoxFit.cover,
+                            ),
+                          );
+                        } else {
+                          return Container(
+                            width: 150,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: cs.surface.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: cs.outlineVariant),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.insert_drive_file,
+                                  color: cs.primary,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    att.name,
+                                    style: tt.bodySmall?.copyWith(
+                                      color: cs.onSurface,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      }).toList(),
+                    ),
+                  ),
+                if (widget.message.content.isNotEmpty)
+                  SelectableText(
+                    widget.message.content,
+                    style: tt.bodyMedium?.copyWith(
+                      color: cs.onSurface,
+                      height: 1.6,
+                    ),
+                  ),
+              ],
             ),
           ),
           // Hover timestamp
@@ -122,7 +187,7 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
                   ),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.auto_awesome, size: 14, color: cs.onPrimary),
+                child: ConcentricCirclesLogo(size: 14, color: cs.onPrimary),
               ),
 
               // Card content
@@ -141,14 +206,16 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
                       ),
                     ],
                   ),
-                  child: _buildMarkdown(context),
+                  child: widget.message.content.isEmpty && widget.isStreaming
+                      ? _buildSkeletonLoader(context)
+                      : _buildMarkdown(context),
                 ),
               ),
             ],
           ),
 
           // Streaming dots
-          if (widget.isStreaming)
+          if (widget.isStreaming && widget.message.content.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: 42, top: 6),
               child: _StreamingDots(color: cs.primary),
@@ -170,6 +237,49 @@ class _MessageBubbleWidgetState extends State<MessageBubbleWidget> {
                   fontSize: 10,
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---- Skeleton loader ----
+  Widget _buildSkeletonLoader(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final baseColor = cs.onSurfaceVariant.withValues(alpha: 0.1);
+    final highlightColor = cs.onSurfaceVariant.withValues(alpha: 0.2);
+
+    return _Shimmer(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 14,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: baseColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 14,
+            width: MediaQuery.sizeOf(context).width * 0.4,
+            decoration: BoxDecoration(
+              color: baseColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 14,
+            width: MediaQuery.sizeOf(context).width * 0.2,
+            decoration: BoxDecoration(
+              color: baseColor,
+              borderRadius: BorderRadius.circular(4),
             ),
           ),
         ],
@@ -690,5 +800,86 @@ class _StreamingDotsState extends State<_StreamingDots>
         );
       },
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Basic Shimmer Effect for Skeleton
+// ---------------------------------------------------------------------------
+
+class _Shimmer extends StatefulWidget {
+  const _Shimmer({
+    required this.child,
+    required this.baseColor,
+    required this.highlightColor,
+  });
+
+  final Widget child;
+  final Color baseColor;
+  final Color highlightColor;
+
+  @override
+  State<_Shimmer> createState() => _ShimmerState();
+}
+
+class _ShimmerState extends State<_Shimmer>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+    _anim = Tween<double>(
+      begin: -1.0,
+      end: 2.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutSine));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) {
+        return ShaderMask(
+          blendMode: BlendMode.srcATop,
+          shaderCallback: (bounds) {
+            return LinearGradient(
+              begin: const Alignment(-1.0, -0.3),
+              end: const Alignment(1.0, 0.3),
+              stops: const [0.0, 0.5, 1.0],
+              colors: [
+                widget.baseColor,
+                widget.highlightColor,
+                widget.baseColor,
+              ],
+              transform: _SlidingGradientTransform(_anim.value),
+            ).createShader(bounds);
+          },
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+class _SlidingGradientTransform extends GradientTransform {
+  const _SlidingGradientTransform(this.percent);
+  final double percent;
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+    return Matrix4.translationValues(bounds.width * percent, 0.0, 0.0);
   }
 }

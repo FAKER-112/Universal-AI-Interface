@@ -1,12 +1,16 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:ai_client_service/data/models/provider.dart';
+import 'package:ai_client_service/main.dart';
 import 'package:ai_client_service/presentation/providers/provider_config_provider.dart';
 import 'package:ai_client_service/presentation/providers/theme_provider.dart';
 import 'package:ai_client_service/services/provider_factory.dart';
 
-/// Settings screen with appearance controls and provider configuration form.
+/// Settings screen with appearance controls, data storage location, and
+/// provider configuration form.
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -101,7 +105,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     setState(() => _testing = true);
 
-    // Build a temporary config from the form values
     final currentConfig = ref.read(providerConfigProvider);
     final testConfig = currentConfig.copyWith(
       name: _nameCtrl.text.trim(),
@@ -149,12 +152,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (type == null) return;
     ref.read(providerConfigProvider.notifier).setType(type);
 
-    // Sync controllers with the new defaults
     final config = ref.read(providerConfigProvider);
     _nameCtrl.text = config.name;
     _urlCtrl.text = config.baseUrl;
     _modelCtrl.text = config.modelName;
     _keyCtrl.text = config.apiKey;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Data storage helpers
+  // ---------------------------------------------------------------------------
+
+  Future<void> _changeStoragePath() async {
+    final result = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Choose data storage folder',
+    );
+    if (result == null || !mounted) return;
+
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setString(kDbPathKey, result);
+    _showRestartDialog();
+  }
+
+  Future<void> _resetStoragePath() async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.remove(kDbPathKey);
+    if (!mounted) return;
+    _showRestartDialog();
+  }
+
+  void _showRestartDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restart required'),
+        content: const Text(
+          'The data storage location has been updated. '
+          'Please restart the application for the change to take effect.\n\n'
+          'Your existing data remains in the previous location. '
+          'You can copy the database files manually if needed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -164,6 +209,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final settings = ref.watch(appSettingsProvider);
     final notifier = ref.read(appSettingsProvider.notifier);
     final providerConfig = ref.watch(providerConfigProvider);
+    final currentDbPath = ref.watch(dbPathProvider);
 
     final isDarkActive =
         settings.themeMode == ThemeMode.dark ||
@@ -269,6 +315,116 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   currentFamily: settings.fontFamily,
                   options: _fontOptions,
                   onChanged: notifier.setFontFamily,
+                ),
+
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 24),
+
+                // ===========================================================
+                // DATA STORAGE
+                // ===========================================================
+                _SectionHeader(
+                  icon: Icons.folder_outlined,
+                  label: 'Data Storage',
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Choose where chat history and settings are stored. '
+                  'Pick a folder you control so data survives app uninstalls.',
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+                const SizedBox(height: 20),
+
+                // -- Current path --
+                _FieldLabel('Current storage path'),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          currentDbPath,
+                          style: tt.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            color: cs.onSurface,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: currentDbPath));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Path copied to clipboard'),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 18),
+                        tooltip: 'Copy path',
+                        splashRadius: 16,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // -- Action buttons --
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _changeStoragePath,
+                        icon: const Icon(Icons.folder_open, size: 18),
+                        label: const Text('Change Location'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _resetStoragePath,
+                        icon: const Icon(Icons.restore, size: 18),
+                        label: const Text('Reset to Default'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
 
                 const SizedBox(height: 32),

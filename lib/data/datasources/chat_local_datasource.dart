@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:isar/isar.dart';
 
 import 'package:ai_client_service/data/models/isar_chat_session.dart';
@@ -6,6 +8,7 @@ import 'package:ai_client_service/data/models/isar_provider_config.dart';
 import 'package:ai_client_service/data/models/chat_message.dart';
 import 'package:ai_client_service/data/models/chat_session.dart';
 import 'package:ai_client_service/data/models/provider.dart';
+import 'package:ai_client_service/data/models/chat_attachment.dart';
 
 /// Provides CRUD operations on the local Isar database for chat sessions,
 /// chat messages, and provider configurations.
@@ -103,7 +106,10 @@ class LocalDataSource {
         ..errorMessage = message.status.maybeMap(
           error: (e) => e.errorMessage,
           orElse: () => null,
-        );
+        )
+        ..attachmentsJson = message.attachments
+            .map((a) => jsonEncode(a.toJson()))
+            .toList();
 
       await _isar.isarChatMessages.put(entity);
     });
@@ -166,6 +172,11 @@ class LocalDataSource {
     content: e.content,
     timestamp: e.timestamp,
     status: _statusFromString(e.status, e.errorMessage),
+    attachments: e.attachmentsJson.map((jsonStr) {
+      return ChatAttachment.fromJson(
+        jsonDecode(jsonStr) as Map<String, dynamic>,
+      );
+    }).toList(),
   );
 
   ProviderConfig _configFromEntity(IsarProviderConfig e) => ProviderConfig(

@@ -87,6 +87,10 @@ _$ChatMessageImpl _$$ChatMessageImplFromJson(Map<String, dynamic> json) =>
       content: json['content'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),
       status: MessageStatus.fromJson(json['status'] as Map<String, dynamic>),
+      attachments: (json['attachments'] as List<dynamic>?)
+              ?.map((e) => ChatAttachment.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
 
 Map<String, dynamic> _$$ChatMessageImplToJson(_$ChatMessageImpl instance) =>
@@ -96,4 +100,5 @@ Map<String, dynamic> _$$ChatMessageImplToJson(_$ChatMessageImpl instance) =>
       'content': instance.content,
       'timestamp': instance.timestamp.toIso8601String(),
       'status': instance.status,
+      'attachments': instance.attachments,
     };

@@ -17,43 +17,48 @@ const IsarChatMessageSchema = CollectionSchema(
   name: r'IsarChatMessage',
   id: 5522043315384162516,
   properties: {
-    r'content': PropertySchema(
+    r'attachmentsJson': PropertySchema(
       id: 0,
+      name: r'attachmentsJson',
+      type: IsarType.stringList,
+    ),
+    r'content': PropertySchema(
+      id: 1,
       name: r'content',
       type: IsarType.string,
     ),
     r'errorMessage': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'errorMessage',
       type: IsarType.string,
     ),
     r'messageId': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'messageId',
       type: IsarType.string,
     ),
     r'role': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'role',
       type: IsarType.string,
     ),
     r'sessionId': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'sessionId',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'status',
       type: IsarType.string,
     ),
     r'timestamp': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'timestamp',
       type: IsarType.dateTime,
     ),
     r'timestampMs': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'timestampMs',
       type: IsarType.long,
     )
@@ -105,6 +110,13 @@ int _isarChatMessageEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  bytesCount += 3 + object.attachmentsJson.length * 3;
+  {
+    for (var i = 0; i < object.attachmentsJson.length; i++) {
+      final value = object.attachmentsJson[i];
+      bytesCount += value.length * 3;
+    }
+  }
   bytesCount += 3 + object.content.length * 3;
   {
     final value = object.errorMessage;
@@ -125,14 +137,15 @@ void _isarChatMessageSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.content);
-  writer.writeString(offsets[1], object.errorMessage);
-  writer.writeString(offsets[2], object.messageId);
-  writer.writeString(offsets[3], object.role);
-  writer.writeString(offsets[4], object.sessionId);
-  writer.writeString(offsets[5], object.status);
-  writer.writeDateTime(offsets[6], object.timestamp);
-  writer.writeLong(offsets[7], object.timestampMs);
+  writer.writeStringList(offsets[0], object.attachmentsJson);
+  writer.writeString(offsets[1], object.content);
+  writer.writeString(offsets[2], object.errorMessage);
+  writer.writeString(offsets[3], object.messageId);
+  writer.writeString(offsets[4], object.role);
+  writer.writeString(offsets[5], object.sessionId);
+  writer.writeString(offsets[6], object.status);
+  writer.writeDateTime(offsets[7], object.timestamp);
+  writer.writeLong(offsets[8], object.timestampMs);
 }
 
 IsarChatMessage _isarChatMessageDeserialize(
@@ -142,15 +155,16 @@ IsarChatMessage _isarChatMessageDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = IsarChatMessage();
-  object.content = reader.readString(offsets[0]);
-  object.errorMessage = reader.readStringOrNull(offsets[1]);
+  object.attachmentsJson = reader.readStringList(offsets[0]) ?? [];
+  object.content = reader.readString(offsets[1]);
+  object.errorMessage = reader.readStringOrNull(offsets[2]);
   object.id = id;
-  object.messageId = reader.readString(offsets[2]);
-  object.role = reader.readString(offsets[3]);
-  object.sessionId = reader.readString(offsets[4]);
-  object.status = reader.readString(offsets[5]);
-  object.timestamp = reader.readDateTime(offsets[6]);
-  object.timestampMs = reader.readLong(offsets[7]);
+  object.messageId = reader.readString(offsets[3]);
+  object.role = reader.readString(offsets[4]);
+  object.sessionId = reader.readString(offsets[5]);
+  object.status = reader.readString(offsets[6]);
+  object.timestamp = reader.readDateTime(offsets[7]);
+  object.timestampMs = reader.readLong(offsets[8]);
   return object;
 }
 
@@ -162,11 +176,11 @@ P _isarChatMessageDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 1:
-      return (reader.readStringOrNull(offset)) as P;
-    case 2:
       return (reader.readString(offset)) as P;
+    case 2:
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
@@ -174,8 +188,10 @@ P _isarChatMessageDeserializeProp<P>(
     case 5:
       return (reader.readString(offset)) as P;
     case 6:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 7:
+      return (reader.readDateTime(offset)) as P;
+    case 8:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -367,6 +383,233 @@ extension IsarChatMessageQueryWhere
 
 extension IsarChatMessageQueryFilter
     on QueryBuilder<IsarChatMessage, IsarChatMessage, QFilterCondition> {
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonElementEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'attachmentsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonElementGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'attachmentsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'attachmentsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonElementBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'attachmentsJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonElementStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'attachmentsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonElementEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'attachmentsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonElementContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'attachmentsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonElementMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'attachmentsJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'attachmentsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'attachmentsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'attachmentsJson',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'attachmentsJson',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'attachmentsJson',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'attachmentsJson',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'attachmentsJson',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
+      attachmentsJsonLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'attachmentsJson',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+
   QueryBuilder<IsarChatMessage, IsarChatMessage, QAfterFilterCondition>
       contentEqualTo(
     String value, {
@@ -1614,6 +1857,13 @@ extension IsarChatMessageQuerySortThenBy
 
 extension IsarChatMessageQueryWhereDistinct
     on QueryBuilder<IsarChatMessage, IsarChatMessage, QDistinct> {
+  QueryBuilder<IsarChatMessage, IsarChatMessage, QDistinct>
+      distinctByAttachmentsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'attachmentsJson');
+    });
+  }
+
   QueryBuilder<IsarChatMessage, IsarChatMessage, QDistinct> distinctByContent(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1676,6 +1926,13 @@ extension IsarChatMessageQueryProperty
   QueryBuilder<IsarChatMessage, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<IsarChatMessage, List<String>, QQueryOperations>
+      attachmentsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'attachmentsJson');
     });
   }
 
