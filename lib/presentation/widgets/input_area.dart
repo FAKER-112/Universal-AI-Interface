@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 import 'package:mime/mime.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 
 import 'package:ai_client_service/core/theme/app_theme.dart';
 
@@ -41,6 +42,8 @@ class InputAreaWidgetState extends State<InputAreaWidget> {
 
   final List<ChatAttachment> _attachments = [];
   bool _useCouncil = false;
+  bool _isDragging = false;
+  bool _showSlashCommands = false;
 
   void _submit() {
     final text = _controller.text.trim();
@@ -101,6 +104,35 @@ class InputAreaWidgetState extends State<InputAreaWidget> {
     _focusNode.addListener(() {
       setState(() => _focused = _focusNode.hasFocus);
     });
+    _controller.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    final text = _controller.text;
+    if (text.startsWith('/')) {
+      if (!_showSlashCommands) {
+        setState(() => _showSlashCommands = true);
+      }
+    } else {
+      if (_showSlashCommands) {
+        setState(() => _showSlashCommands = false);
+      }
+    }
+  }
+
+  void _executeCommand(String command) {
+    setState(() => _showSlashCommands = false);
+    _controller.clear();
+
+    switch (command) {
+      case '/council':
+        setState(() => _useCouncil = !_useCouncil);
+        break;
+      case '/clear':
+        setState(() => _attachments.clear());
+        break;
+    }
+    _focusNode.requestFocus();
   }
 
   @override
@@ -120,43 +152,107 @@ class InputAreaWidgetState extends State<InputAreaWidget> {
     // Max height = 40% of screen so user can see conversation above
     final maxFieldHeight = (screenH * 0.4).clamp(120.0, 400.0);
 
-    return SafeArea(
-      top: false,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 780),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // -- Main input container --
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  decoration: BoxDecoration(
-                    color: chatExt.inputBg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _focused
-                          ? cs.primary.withValues(alpha: 0.45)
-                          : chatExt.subtleBorder,
-                      width: _focused ? 1.5 : 1,
+    return DropTarget(
+      onDragEntered: (details) {
+        setState(() => _isDragging = true);
+      },
+      onDragExited: (details) {
+        setState(() => _isDragging = false);
+      },
+      onDragDone: (details) {
+        setState(() {
+          _isDragging = false;
+          for (final file in details.files) {
+            final mimeType = lookupMimeType(file.name) ?? 'application/octet-stream';
+            _attachments.add(
+              ChatAttachment(
+                id: const Uuid().v4(),
+                path: file.path,
+                name: file.name,
+                mimeType: mimeType,
+              ),
+            );
+          }
+        });
+        HapticFeedback.lightImpact();
+      },
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 850),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // -- Slash Commands Overlay --
+                  if (_showSlashCommands)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: chatExt.subtleBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: cs.shadow.withValues(alpha: 0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _CommandItem(
+                            icon: Icons.group_work_outlined,
+                            label: '/council',
+                            description: 'Toggle LLM Council',
+                            onTap: () => _executeCommand('/council'),
+                          ),
+                          _CommandItem(
+                            icon: Icons.clear_all_rounded,
+                            label: '/clear',
+                            description: 'Clear attachments',
+                            onTap: () => _executeCommand('/clear'),
+                          ),
+                        ],
+                      ),
                     ),
-                    boxShadow: _focused
-                        ? [
-                            BoxShadow(
-                              color: cs.primary.withValues(alpha: 0.06),
-                              blurRadius: 10,
-                              spreadRadius: 0,
-                            ),
-                          ]
-                        : [],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+
+                  // -- Main input container --
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    decoration: BoxDecoration(
+                      color: _isDragging
+                          ? cs.primaryContainer.withValues(alpha: 0.3)
+                          : chatExt.inputBg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _isDragging
+                            ? cs.primary.withValues(alpha: 0.7)
+                            : (_focused
+                                ? cs.primary.withValues(alpha: 0.45)
+                                : chatExt.subtleBorder),
+                        width: _focused || _isDragging ? 1.5 : 1,
+                      ),
+                      boxShadow: _focused
+                          ? [
+                              BoxShadow(
+                                color: cs.primary.withValues(alpha: 0.06),
+                                blurRadius: 10,
+                                spreadRadius: 0,
+                              ),
+                            ]
+                          : [],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                       // -- LLM Council Toggle --
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -403,9 +499,61 @@ class InputAreaWidgetState extends State<InputAreaWidget> {
                     ),
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Slash Command Item
+// ---------------------------------------------------------------------------
+
+class _CommandItem extends StatelessWidget {
+  const _CommandItem({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: cs.primary),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: tt.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              description,
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,0 +1,11 @@
+--- chat_provider.dart
++++ chat_provider.dart
+@@ -162,7 +162,7 @@
+       final activeId = sorted.isNotEmpty ? sorted.first.id : const Uuid().v4();
+       final activeMsgs = await _repository.loadMessages(activeId);
+
+-      state = state.copyWith(
++      if (mounted) state = state.copyWith(
+         sessions: {for (final s in sorted) s.id: s},
+         activeSessionId: activeId,
+         messages: activeMsgs,

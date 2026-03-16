@@ -162,7 +162,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       );
     }
 
-    if (mounted) state = state.copyWith(sessions: sessionsMap, isLoading: false);
+    state = state.copyWith(sessions: sessionsMap, isLoading: false);
   }
 
   /// Creates a new empty chat session.

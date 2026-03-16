@@ -192,55 +192,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   // =========================================================================
-  // Tablet (600-1024): icons-only rail + content
+  // Tablet (600-1024): collapsible sidebar + content
   // =========================================================================
   Widget _tabletLayout(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final selected = _currentIndex();
-
-    return Scaffold(
-      body: Row(
-        children: [
-          NavigationRail(
-            selectedIndex: selected,
-            onDestinationSelected: _onDestinationSelected,
-            labelType: NavigationRailLabelType.all,
-            leading: Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: IconButton(
-                onPressed: () {
-                  _scaffoldKey.currentState?.openDrawer();
-                },
-                icon: const Icon(Icons.menu, size: 22),
-                tooltip: 'Open sidebar',
-              ),
-            ),
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.chat_outlined),
-                selectedIcon: Icon(Icons.chat),
-                label: Text('Chat'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.history_outlined),
-                selectedIcon: Icon(Icons.history),
-                label: Text('History'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings),
-                label: Text('Settings'),
-              ),
-            ],
-          ),
-          VerticalDivider(
-            width: 1,
-            color: cs.outlineVariant.withValues(alpha: 0.2),
-          ),
-          Expanded(child: widget.child),
-        ],
-      ),
-    );
+    return _desktopLayout(context);
   }
 
   // =========================================================================
