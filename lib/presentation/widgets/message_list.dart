@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:ai_client_service/data/models/chat_message.dart';
 import 'package:ai_client_service/presentation/widgets/message_bubble.dart';
@@ -40,6 +41,14 @@ class _MessageListWidgetState extends State<MessageListWidget> {
     if (widget.messages.length != oldWidget.messages.length ||
         widget.isStreaming) {
       _scrollToBottom();
+    }
+
+    // Check if streaming just finished for haptic feedback
+    if (oldWidget.isStreaming && !widget.isStreaming && widget.messages.isNotEmpty) {
+       final lastMsg = widget.messages.last;
+       if (lastMsg.role is! MessageRoleUser) {
+           HapticFeedback.lightImpact();
+       }
     }
   }
 
@@ -98,7 +107,7 @@ class _MessageListWidgetState extends State<MessageListWidget> {
 
             return Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 780),
+                constraints: const BoxConstraints(maxWidth: 850),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,

@@ -1,0 +1,22 @@
+--- lib/presentation/widgets/message_bubble.dart
++++ lib/presentation/widgets/message_bubble.dart
+@@ -638,7 +638,7 @@
+               ? PreConfig.darkConfig.copy(
+                   decoration: BoxDecoration(color: chatExt.codeBg, borderRadius: BorderRadius.circular(12)),
+                 )
+-              : PreConfig.defaultConfig.copyWith(
++              : PreConfig.defaultConfig.copy(
+                   theme: isDark ? atomOneDarkTheme : atomOneLightTheme,
+                   decoration: BoxDecoration(color: chatExt.codeBg, borderRadius: BorderRadius.circular(12)),
+                 ),
+@@ -660,8 +660,8 @@
+         ],
+       ),
+       markdownGenerator: MarkdownGenerator(
+-        generators: [latexGenerator],
+-        inlineSyntaxList: [LatexSyntax()],
++        generators: [latexGeneratorBuilder],
++        inlineSyntaxList: [latexSyntax],
+       ),
+     );
+   }

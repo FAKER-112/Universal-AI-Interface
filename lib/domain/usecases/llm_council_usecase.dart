@@ -20,9 +20,8 @@ class LLMCouncilUsecase {
       return;
     }
 
-    // Since we want to use the `<think>` tag UI we just built,
-    // we can yield the parallel responses as "thinking" process!
-    yield "<think>\nGathering council members...\n";
+    // Yield our custom <council> tag instead of <think> to enable custom UI parsing
+    yield "<council>\nRouting prompt...\n";
 
     // Step 1: Parallel Calls
     final futures = councilMembers.map((member) async {
@@ -33,8 +32,10 @@ class LLMCouncilUsecase {
       await for (final token in stream) {
         buffer.write(token);
       }
-      return "--- ${member.name}'s perspective ---\n${buffer.toString().trim()}\n";
+      return "||${member.name}||${buffer.toString().trim()}";
     });
+
+    yield "Model responses incoming...\n";
 
     final councilResponses = await Future.wait(futures);
 
@@ -49,8 +50,8 @@ class LLMCouncilUsecase {
       yield "$response\n";
     }
 
-    // Close the thinking block now that synthesis starts
-    yield "Synthesizing final answer...\n</think>\n\n";
+    // Close the council block now that synthesis starts
+    yield "Aggregating insights...\n</council>\n\n";
 
     final synthesizePrompt =
         "${aggregatorContext.toString()}\n\nPlease synthesize these perspectives and formulate the final best answer directly addressing the original user query.";

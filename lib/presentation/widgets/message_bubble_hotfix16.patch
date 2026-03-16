@@ -1,0 +1,11 @@
+--- lib/presentation/widgets/message_bubble.dart
++++ lib/presentation/widgets/message_bubble.dart
+@@ -7,7 +7,7 @@
+ import 'package:flutter_highlight/themes/atom-one-light.dart';
+ import 'package:highlight/highlight.dart' show highlight;
+ import 'package:flutter_tts/flutter_tts.dart';
+-import 'package:flutter_markdown_latex/flutter_markdown_latex.dart' hide LatexSyntax;
++import 'package:flutter_markdown_latex/flutter_markdown_latex.dart';
+
+ import 'package:ai_client_service/core/theme/app_theme.dart';
+ import 'package:ai_client_service/data/models/chat_message.dart';

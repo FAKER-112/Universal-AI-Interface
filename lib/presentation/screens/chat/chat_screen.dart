@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -33,154 +35,173 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final tt = Theme.of(context).textTheme;
     final chatExt = Theme.of(context).extension<ChatThemeExtension>()!;
 
-    return Column(
+    return Stack(
       children: [
-        // -- Chat header with model selector --
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: cs.surface,
-            border: Border(bottom: BorderSide(color: chatExt.subtleBorder)),
-          ),
-          child: SafeArea(
-            bottom: false,
-            child: Row(
-              children: [
-                // Mobile hamburger (only visible when no sidebar)
-                if (MediaQuery.sizeOf(context).width < 600)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: IconButton(
-                      icon: const Icon(Icons.menu, size: 22),
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                      tooltip: 'Menu',
+        Column(
+          children: [
+            // -- Spacer for header --
+            SizedBox(
+              height: MediaQuery.paddingOf(context).top + 60,
+            ),
+
+            // -- Messages --
+            Expanded(
+              child: chatState.messages.isEmpty
+                  ? _EmptyState(colorScheme: cs)
+                  : MessageListWidget(
+                      messages: chatState.messages,
+                      isStreaming: chatState.isStreaming,
+                      onEdit: (msg) {
+                        ref.read(chatNotifierProvider.notifier).editMessage(
+                          msg.id,
+                          (text, attachments) {
+                            _inputKey.currentState?.setInput(text, attachments);
+                          },
+                        );
+                      },
+                      onRegenerate: (msg) {
+                        ref
+                            .read(chatNotifierProvider.notifier)
+                            .regenerateMessage(msg.id, providerConfig);
+                      },
                     ),
-                  ),
+            ),
 
-                // Model selector dropdown
-                ModelSelector(
-                  currentConfig: providerConfig,
-                  allConfigs: savedConfigs,
-                  onModelChanged: (config) {
-                    ref.read(providerConfigProvider.notifier).update(config);
-                  },
-                  onTogglePin: (id) {
-                    ref.read(savedConfigsProvider.notifier).togglePin(id);
-                  },
-                  onEditCurrent: () => showModelConfigPanel(context),
-                  onSaveAsPreset: () => _saveAsPreset(context, providerConfig),
+            // -- Input --
+            InputAreaWidget(
+              key: _inputKey,
+              isStreaming: chatState.isStreaming,
+              onSend: (text, attachments, {useCouncil = false}) {
+                final activeChatId = ref.read(chatNotifierProvider).activeSessionId;
+                final config = ref.read(providerConfigProvider);
+                ref
+                    .read(chatNotifierProvider.notifier)
+                    .sendMessage(
+                      text,
+                      config,
+                      sessionId: activeChatId,
+                      attachments: attachments,
+                      useCouncil: useCouncil,
+                    );
+              },
+              onStop: () {
+                ref.read(chatNotifierProvider.notifier).cancelStream();
+              },
+            ),
+          ],
+        ),
+
+        // -- Adaptive Header (Frosted Glass) --
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: ClipRRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: cs.surface.withValues(alpha: 0.7),
+                  border: Border(bottom: BorderSide(color: chatExt.subtleBorder.withValues(alpha: 0.5))),
                 ),
+                child: SafeArea(
+                  bottom: false,
+                  child: Row(
+                    children: [
+                      // Mobile hamburger (only visible when no sidebar)
+                      if (MediaQuery.sizeOf(context).width < 600)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: IconButton(
+                            icon: const Icon(Icons.menu, size: 22),
+                            onPressed: () => Scaffold.of(context).openDrawer(),
+                            tooltip: 'Menu',
+                          ),
+                        ),
 
-                const SizedBox(width: 8),
+                      // Model selector dropdown
+                      ModelSelector(
+                        currentConfig: providerConfig,
+                        allConfigs: savedConfigs,
+                        onModelChanged: (config) {
+                          ref.read(providerConfigProvider.notifier).update(config);
+                        },
+                        onTogglePin: (id) {
+                          ref.read(savedConfigsProvider.notifier).togglePin(id);
+                        },
+                        onEditCurrent: () => showModelConfigPanel(context),
+                        onSaveAsPreset: () => _saveAsPreset(context, providerConfig),
+                      ),
 
-                // Provider badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color:
-                        providerConfig.apiKey.isEmpty &&
-                            providerConfig.type == ProviderType.openai
-                        ? cs.tertiaryContainer.withValues(alpha: 0.4)
-                        : cs.primaryContainer.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    providerConfig.apiKey.isEmpty &&
-                            providerConfig.type == ProviderType.openai
-                        ? 'Mock'
-                        : providerConfig.name,
-                    style: tt.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color:
+                      const SizedBox(width: 8),
+
+                      // Provider badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              providerConfig.apiKey.isEmpty &&
+                                      providerConfig.type == ProviderType.openai
+                                  ? cs.tertiaryContainer.withValues(alpha: 0.4)
+                                  : cs.primaryContainer.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
                           providerConfig.apiKey.isEmpty &&
-                              providerConfig.type == ProviderType.openai
-                          ? cs.onTertiaryContainer
-                          : cs.onPrimaryContainer,
-                      fontSize: 10,
-                    ),
+                                  providerConfig.type == ProviderType.openai
+                              ? 'Mock'
+                              : providerConfig.name,
+                          style: tt.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color:
+                                providerConfig.apiKey.isEmpty &&
+                                        providerConfig.type == ProviderType.openai
+                                    ? cs.onTertiaryContainer
+                                    : cs.onPrimaryContainer,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+
+                      const Spacer(),
+
+                      // New chat button
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          ref.read(chatNotifierProvider.notifier).newChat();
+                        },
+                        icon: const Icon(Icons.edit_square, size: 18),
+                        label: const Text('New chat'),
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: cs.primaryContainer.withValues(alpha: 0.5),
+                          foregroundColor: cs.onPrimaryContainer,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+
+                      // Stop streaming action
+                      if (chatState.isStreaming)
+                        TextButton.icon(
+                          onPressed: () =>
+                              ref.read(chatNotifierProvider.notifier).cancelStream(),
+                          icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                          label: const Text('Stop'),
+                          style: TextButton.styleFrom(foregroundColor: cs.error),
+                        ),
+                    ],
                   ),
                 ),
-
-                const Spacer(),
-
-                // New chat button
-                ElevatedButton.icon(
-                  onPressed: () {
-                    ref.read(chatNotifierProvider.notifier).newChat();
-                  },
-                  icon: const Icon(Icons.edit_square, size: 18),
-                  label: const Text('New chat'),
-                  style: ElevatedButton.styleFrom(
-                    elevation: 0,
-                    backgroundColor: cs.primaryContainer.withValues(alpha: 0.5),
-                    foregroundColor: cs.onPrimaryContainer,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                ),
-
-                // Stop streaming action
-                if (chatState.isStreaming)
-                  TextButton.icon(
-                    onPressed: () =>
-                        ref.read(chatNotifierProvider.notifier).cancelStream(),
-                    icon: const Icon(Icons.stop_circle_outlined, size: 18),
-                    label: const Text('Stop'),
-                    style: TextButton.styleFrom(foregroundColor: cs.error),
-                  ),
-              ],
+              ),
             ),
           ),
-        ),
-
-        // -- Messages --
-        Expanded(
-          child: chatState.messages.isEmpty
-              ? _EmptyState(colorScheme: cs)
-              : MessageListWidget(
-                  messages: chatState.messages,
-                  isStreaming: chatState.isStreaming,
-                  onEdit: (msg) {
-                    ref.read(chatNotifierProvider.notifier).editMessage(
-                      msg.id,
-                      (text, attachments) {
-                        _inputKey.currentState?.setInput(text, attachments);
-                      },
-                    );
-                  },
-                  onRegenerate: (msg) {
-                    ref
-                        .read(chatNotifierProvider.notifier)
-                        .regenerateMessage(msg.id, providerConfig);
-                  },
-                ),
-        ),
-
-        // -- Input --
-        InputAreaWidget(
-          key: _inputKey,
-          isStreaming: chatState.isStreaming,
-          onSend: (text, attachments, {useCouncil = false}) {
-            final activeChatId = ref.read(chatNotifierProvider).activeSessionId;
-            final config = ref.read(providerConfigProvider);
-            ref
-                .read(chatNotifierProvider.notifier)
-                .sendMessage(
-                  text,
-                  config,
-                  sessionId: activeChatId,
-                  attachments: attachments,
-                  useCouncil: useCouncil,
-                );
-          },
-          onStop: () {
-            ref.read(chatNotifierProvider.notifier).cancelStream();
-          },
         ),
       ],
     );

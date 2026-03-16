@@ -1,0 +1,13 @@
+--- lib/presentation/widgets/message_bubble.dart
++++ lib/presentation/widgets/message_bubble.dart
+@@ -657,8 +657,8 @@
+         ],
+       ),
+       markdownGenerator: MarkdownGenerator(
+-        generators: [latexGenerator],
+-        inlineSyntaxList: [latexSyntax],
++        generators: [latexGenerator],
++        inlineSyntaxList: [LatexSyntax()],
+       ),
+     );
+   }

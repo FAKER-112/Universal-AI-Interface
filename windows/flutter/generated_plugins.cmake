@@ -3,10 +3,12 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  desktop_drop
   flutter_secure_storage_windows
   flutter_tts
   isar_flutter_libs
   screen_retriever_windows
+  url_launcher_windows
   window_manager
 )
 
